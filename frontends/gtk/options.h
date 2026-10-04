@@ -39,7 +39,7 @@ NSOPTION_STRING(url_file, NULL)
 NSOPTION_BOOL(show_single_tab, false)
 
 /* size of buttons */
-NSOPTION_INTEGER(button_type, 0)
+NSOPTION_INTEGER(button_type, 1)
 
 /* number of days to keep history data */
 NSOPTION_INTEGER(history_age, 0)

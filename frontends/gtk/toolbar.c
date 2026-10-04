@@ -3516,7 +3516,7 @@ nserror nsgtk_toolbar_restyle(struct nsgtk_toolbar *tb)
 		gtk_toolbar_set_style(GTK_TOOLBAR(tb->widget),
 				      GTK_TOOLBAR_ICONS);
 		gtk_toolbar_set_icon_size(GTK_TOOLBAR(tb->widget),
-					  GTK_ICON_SIZE_SMALL_TOOLBAR);
+					  GTK_ICON_SIZE_MENU);
 		break;
 
 	case 2: /* Large icons */
