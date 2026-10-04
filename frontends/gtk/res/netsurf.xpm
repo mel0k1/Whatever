@@ -1,7 +1,7 @@
 /* XPM */
 static char *netsurf[] = {
 /* columns rows colors chars-per-pixel */
-64 64 64 1,
+"64 64 64 1",
 "  c None",
 "A c #FFFFFF",
 "B c #FEFEFE",
