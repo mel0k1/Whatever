@@ -47,6 +47,7 @@ cross_lib() {
 }
 
 host_tool buildsystem
+make -C "$SRC/buildsystem" install PREFIX="$PREFIX"
 clone nsgenbind
 host_tool nsgenbind
 
