@@ -135,7 +135,8 @@ fetch jpeg-9f https://www.ijg.org/files/jpegsrc.v9f.tar.gz
 fetch libpng-1.6.46 https://download.sourceforge.net/libpng/libpng-1.6.46.tar.gz
 (
     cd "$SRC/libpng-1.6.46"
-    ./configure --host="$CROSS" --prefix="$PREFIX" --disable-shared
+    CPPFLAGS="-I$PREFIX/include" LDFLAGS="-L$PREFIX/lib" \
+        ./configure --host="$CROSS" --prefix="$PREFIX" --disable-shared
     make -j"$JOBS"
     make install
 )
@@ -143,7 +144,8 @@ fetch libpng-1.6.46 https://download.sourceforge.net/libpng/libpng-1.6.46.tar.gz
 fetch curl-8.11.1 https://curl.se/download/curl-8.11.1.tar.gz
 (
     cd "$SRC/curl-8.11.1"
-    ./configure --host="$CROSS" --prefix="$PREFIX" \
+    CPPFLAGS="-I$PREFIX/include" LDFLAGS="-L$PREFIX/lib" \
+        ./configure --host="$CROSS" --prefix="$PREFIX" \
         --disable-shared --enable-static --with-schannel --without-openssl \
         --without-gnutls --without-mbedtls --without-wolfssl --without-libpsl \
         --without-brotli --without-zstd --without-libidn2 --without-nghttp2 \
