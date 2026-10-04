@@ -35,6 +35,7 @@ clone() {
 }
 
 host_tool() {
+    clone "$1"
     make -C "$SRC/$1" -j"$JOBS" install PREFIX="$BUILD_PREFIX" HOST="$(cc -dumpmachine)"
 }
 
@@ -61,10 +62,11 @@ cross_lib libnsgif
 cross_lib libnsbmp
 
 clone utf8proc
-make -C "$SRC/utf8proc" -j"$JOBS" install prefix="$PREFIX" \
-    CC="$CROSS-gcc" AR="$CROSS-ar" shared=false
+make -C "$SRC/utf8proc" -j"$JOBS" CC="$CROSS-gcc" AR="$CROSS-ar" libutf8proc.a
+cp "$SRC/utf8proc/libutf8proc.a" "$PREFIX/lib/"
+cp "$SRC/utf8proc/utf8proc.h" "$PREFIX/include/"
 mkdir -p "$PREFIX/lib/pkgconfig"
-printf 'prefix=%s\nlibdir=${prefix}/lib\nincludedir=${prefix}/include\n\nName: libutf8proc\nDescription: UTF-8 text processing library\nVersion: 2.9.0\nLibs: -L${libdir} -lutf8proc\nCflags: -I${includedir}\n' "$PREFIX" > "$PREFIX/lib/pkgconfig/libutf8proc.pc"
+printf 'prefix=%s\nlibdir=${prefix}/lib\nincludedir=${prefix}/include\n\nName: libutf8proc\nDescription: UTF-8 text processing library\nVersion: 2.12.0\nLibs: -L${libdir} -lutf8proc\nCflags: -I${includedir}\n' "$PREFIX" > "$PREFIX/lib/pkgconfig/libutf8proc.pc"
 
 fetch zlib-1.3.1 https://github.com/madler/zlib/archive/refs/tags/v1.3.1.tar.gz
 (
