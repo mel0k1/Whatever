@@ -1,0 +1,124 @@
+* {
+  border-radius: 0;
+}
+
+window, dialog {
+  background-color: #000000;
+  color: #ffffff;
+}
+
+menubar {
+  background-color: #000000;
+  color: #ffffff;
+}
+
+toolbar {
+  background-color: #000000;
+  background-image: none;
+  border-bottom: 1px solid #ffffff;
+  box-shadow: none;
+}
+
+statusbar {
+  background-color: #000000;
+  color: #ffffff;
+  border-top: 1px solid #ffffff;
+}
+
+button {
+  background-color: #000000;
+  color: #ffffff;
+  background-image: none;
+  border: 1px solid #ffffff;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+button:hover, button:active, button:checked {
+  background-color: #ffffff;
+  color: #000000;
+}
+
+button:disabled {
+  color: #888888;
+  border-color: #888888;
+}
+
+entry, spinbutton {
+  background-color: #000000;
+  color: #ffffff;
+  background-image: none;
+  border: 1px solid #ffffff;
+  box-shadow: none;
+  caret-color: #ffffff;
+}
+
+entry:selected, spinbutton:selected {
+  background-color: #ffffff;
+  color: #000000;
+}
+
+checkbutton, radiobutton, label {
+  color: #ffffff;
+}
+
+scrollbar {
+  background-color: #000000;
+  border: none;
+}
+
+scrollbar slider {
+  background-color: #ffffff;
+  background-image: none;
+  border-radius: 0;
+  border: none;
+  min-width: 8px;
+  min-height: 8px;
+}
+
+notebook > header, notebook header {
+  background-color: #000000;
+  background-image: none;
+  border: none;
+  box-shadow: none;
+}
+
+notebook > header > tabs > tab, notebook tab {
+  background-color: #000000;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  padding: 2px 8px;
+}
+
+notebook > header > tabs > tab:checked, notebook tab:checked {
+  background-color: #ffffff;
+  color: #000000;
+}
+
+menu {
+  background-color: #000000;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+}
+
+menuitem {
+  color: #ffffff;
+}
+
+menuitem:hover {
+  background-color: #ffffff;
+  color: #000000;
+}
+
+tooltip {
+  background-color: #ffffff;
+  color: #000000;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+separator {
+  background-color: #ffffff;
+  min-width: 1px;
+  min-height: 1px;
+}
