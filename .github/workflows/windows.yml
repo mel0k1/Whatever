@@ -1,0 +1,29 @@
+name: windows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  mingw64:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config flex bison gperf perl \
+            gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64 wget
+
+      - name: Cross build (mingw64)
+        run: ./tools/cross-windows.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: whatever-win64
+          path: whatever-win64.tar.gz
