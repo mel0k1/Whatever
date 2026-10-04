@@ -117,8 +117,9 @@ fetch c-ares-1.34.4 https://github.com/c-ares/c-ares/releases/download/v1.34.4/c
 fetch mingw-libgnurx-2.5.1 https://downloads.sourceforge.net/project/mingw/Other/UserContributed/regex/mingw-regex-2.5.1/mingw-libgnurx-2.5.1-src.tar.gz
 (
     cd "$SRC/mingw-libgnurx-2.5.1"
-    ./configure --host="$CROSS" --prefix="$PREFIX"
-    make -j"$JOBS" CC="$CROSS-gcc" AR="$CROSS-ar" RANLIB="$CROSS-ranlib" libgnurx.a
+    "$CROSS-gcc" -O2 -I. -c regex.c -o regex.o
+    "$CROSS-ar" rcs libgnurx.a regex.o
+    "$CROSS-ranlib" libgnurx.a
     cp libgnurx.a "$PREFIX/lib/"
     cp regex.h "$PREFIX/include/"
 )
