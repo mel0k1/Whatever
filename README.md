@@ -59,9 +59,13 @@ Upstream build documentation: [docs/building-GTK.md](docs/building-GTK.md).
 
     make TARGET=gtk3 -j$(nproc)
 
+CI also cross-builds the Windows frontend with mingw64. The `windows`
+workflow publishes `whatever-win64` artifacts; treat them as experimental
+until tested on hardware.
+
 ## Roadmap
 
-- Native Windows build (frontends/windows), see the `windows` workflow.
+- Test and package the Windows build.
 - Replace installer banner and throbber assets.
 
 ## Contributing
@@ -104,6 +108,9 @@ BeOS/Haiku, framebuffer, Qt и RISC OS.
 <https://download.netsurf-browser.org/netsurf/releases/source/>.
 
     make TARGET=gtk3 -j$(nproc)
+
+CI также кросс-собирает Windows-версию через mingw64; артефакты
+`whatever-win64` считаются экспериментальными.
 
 ## Правила проекта
 
