@@ -79,13 +79,14 @@ fetch expat-2.6.4 https://github.com/libexpat/libexpat/releases/download/R_2_6_4
 cross_lib libdom "-DNDEBUG -O2 -I$PREFIX/include"
 cross_lib libnsgif
 cross_lib libnsbmp
+sed -i 's#-lnsutils#-lnsutils -lwinpthread#' "$PREFIX/lib/pkgconfig/libnsutils.pc"
 
 clone utf8proc JuliaStrings
 make -C "$SRC/utf8proc" -j"$JOBS" CC="$CROSS-gcc" AR="$CROSS-ar" libutf8proc.a
 cp "$SRC/utf8proc/libutf8proc.a" "$PREFIX/lib/"
 cp "$SRC/utf8proc/utf8proc.h" "$PREFIX/include/"
 mkdir -p "$PREFIX/lib/pkgconfig"
-printf 'prefix=%s\nlibdir=${prefix}/lib\nincludedir=${prefix}/include\n\nName: libutf8proc\nDescription: UTF-8 text processing library\nVersion: 2.12.0\nLibs: -L${libdir} -lutf8proc\nCflags: -I${includedir}\n' "$PREFIX" > "$PREFIX/lib/pkgconfig/libutf8proc.pc"
+printf 'prefix=%s\nlibdir=${prefix}/lib\nincludedir=${prefix}/include\n\nName: libutf8proc\nDescription: UTF-8 text processing library\nVersion: 2.12.0\nLibs: -L${libdir} -lutf8proc\nCflags: -DUTF8PROC_STATIC -I${includedir}\n' "$PREFIX" > "$PREFIX/lib/pkgconfig/libutf8proc.pc"
 
 fetch zlib-1.3.1 https://github.com/madler/zlib/archive/refs/tags/v1.3.1.tar.gz
 (
