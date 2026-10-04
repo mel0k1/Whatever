@@ -105,7 +105,7 @@ fetch libiconv-1.17 https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.17.tar.gz
     make install
 )
 
-fetch c-ares-1.34.4 https://github.com/c-ares/c-ares/releases/download/cares-1_34_4/c-ares-1.34.4.tar.gz
+fetch c-ares-1.34.4 https://github.com/c-ares/c-ares/releases/download/v1.34.4/c-ares-1.34.4.tar.gz
 (
     cd "$SRC/c-ares-1.34.4"
     ./configure --host="$CROSS" --prefix="$PREFIX" \
@@ -114,7 +114,7 @@ fetch c-ares-1.34.4 https://github.com/c-ares/c-ares/releases/download/cares-1_3
     make install
 )
 
-fetch mingw-libgnurx-2.5.1 http://deb.debian.org/debian/pool/main/m/mingw-libgnurx/mingw-libgnurx_2.5.1.orig.tar.gz
+fetch mingw-libgnurx-2.5.1 https://downloads.sourceforge.net/project/mingw/Other/UserContributed/regex/mingw-regex-2.5.1/mingw-libgnurx-2.5.1-src.tar.gz
 (
     cd "$SRC/mingw-libgnurx-2.5.1"
     ./configure --host="$CROSS" --prefix="$PREFIX"
