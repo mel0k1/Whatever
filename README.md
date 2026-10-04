@@ -1,6 +1,7 @@
 # Whatever
 
 [![License](https://img.shields.io/badge/license-GPL--2.0--only-black?style=flat-square)](COPYING)
+[![Build](https://github.com/mel0k1/Whatever/actions/workflows/build.yml/badge.svg?style=flat-square)](https://github.com/mel0k1/Whatever/actions/workflows/build.yml)
 [![Platform](https://img.shields.io/badge/platform-Linux%20GTK3-black?style=flat-square)](docs/building-GTK.md)
 [![Language](https://img.shields.io/badge/language-C-black?style=flat-square)]()
 [![Status](https://img.shields.io/badge/status-alpha-black?style=flat-square)]()
@@ -56,10 +57,10 @@ Upstream build documentation: [docs/building-GTK.md](docs/building-GTK.md).
 
 ## Roadmap
 
-- Rebrand remaining user-facing text (welcome page, credits).
 - Slim default toolbar and menu set.
-- Full-page monochrome stylesheet for content rendering.
-- Trim unused frontends and assets from the tree.
+- Monochrome stylesheet for content rendering.
+- Native Windows build (frontends/windows).
+- Replace installer banner and throbber assets.
 
 ## Contributing
 
