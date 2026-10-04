@@ -758,6 +758,36 @@ static nserror create_cache_home(char **cache_home_out)
 }
 
 
+static void nsgtk_apply_theme(void)
+{
+	const char *path;
+	GtkCssProvider *provider;
+	GError *error = NULL;
+	nserror res;
+
+	if (getenv("WHATEVER_THEME") != NULL &&
+	    strcmp(getenv("WHATEVER_THEME"), "dark") == 0) {
+		res = nsgtk_path_from_resname("whatever-dark.css", &path);
+	} else {
+		res = nsgtk_path_from_resname("whatever.css", &path);
+	}
+	if (res != NSERROR_OK) {
+		return;
+	}
+
+	provider = gtk_css_provider_new();
+	gtk_css_provider_load_from_path(provider, path, &error);
+	if (error == NULL) {
+		gtk_style_context_add_provider_for_screen(
+			gdk_screen_get_default(),
+			GTK_STYLE_PROVIDER(provider),
+			GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+	} else {
+		g_error_free(error);
+	}
+	g_object_unref(provider);
+}
+
 /**
  * GTK specific initialisation
  */
@@ -799,6 +829,8 @@ static nserror nsgtk_init(int *pargc, char ***pargv, char **cache_home)
 			messages_get_errorcode(ret));
 		return ret;
 	}
+
+	nsgtk_apply_theme();
 
 	/* Initialise user options */
 	ret = nsgtk_option_init(pargc, *pargv);
