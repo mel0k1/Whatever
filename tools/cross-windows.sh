@@ -21,7 +21,7 @@ fetch() {
     dir="$1"
     url="$2"
     if [ ! -d "$SRC/$dir" ]; then
-        wget -q -O "$SRC/$dir.archive" "$url"
+        wget -q --tries=3 --waitretry=10 -O "$SRC/$dir.archive" "$url"
         tar -C "$SRC" -xf "$SRC/$dir.archive"
         rm -f "$SRC/$dir.archive"
     fi
@@ -29,8 +29,16 @@ fetch() {
 
 clone() {
     repo="$1"
+    org="${2:-netsurf-browser}"
     if [ ! -d "$SRC/$repo" ]; then
-        git clone --depth 1 "https://github.com/netsurf-browser/$repo.git" "$SRC/$repo"
+        n=0
+        until git clone --depth 1 "https://github.com/$org/$repo.git" "$SRC/$repo"; do
+            n=$((n+1))
+            if [ "$n" -ge 3 ]; then
+                exit 1
+            fi
+            sleep 10
+        done
     fi
 }
 
@@ -72,7 +80,7 @@ cross_lib libdom "-DNDEBUG -O2 -I$PREFIX/include"
 cross_lib libnsgif
 cross_lib libnsbmp
 
-clone utf8proc
+clone utf8proc JuliaStrings
 make -C "$SRC/utf8proc" -j"$JOBS" CC="$CROSS-gcc" AR="$CROSS-ar" libutf8proc.a
 cp "$SRC/utf8proc/libutf8proc.a" "$PREFIX/lib/"
 cp "$SRC/utf8proc/utf8proc.h" "$PREFIX/include/"
