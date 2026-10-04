@@ -1,27 +1,110 @@
-NetSurf
-=======
+# Whatever
 
-This document should help point you at various useful bits of information.
+[![License](https://img.shields.io/badge/license-GPL--2.0--only-black?style=flat-square)](COPYING)
+[![Platform](https://img.shields.io/badge/platform-Linux%20GTK3-black?style=flat-square)](docs/building-GTK.md)
+[![Language](https://img.shields.io/badge/language-C-black?style=flat-square)]()
+[![Status](https://img.shields.io/badge/status-alpha-black?style=flat-square)]()
 
+A minimalist web browser based on [NetSurf](https://www.netsurf-browser.org/).
 
-Building NetSurf
-----------------
+Whatever is a fork of NetSurf with a stripped-down monochrome interface: flat
+surfaces, square corners, two colors, no decoration. The rendering core —
+NetSurf's own lightweight HTML and CSS engine — is kept intact. Work is
+concentrated on the GUI and on keeping the browser small.
 
-Read the [Quick Start](docs/quick-start.md) document for instructions.
+## Why
 
+Most modern browsers are heavy and visually noisy. NetSurf is neither, and
+its own engine keeps it small and auditable. Whatever builds on that: a
+serious, quiet interface with nothing to distract.
 
-Creating a new port
--------------------
+## Status
 
-Look at the existing front ends for example implementations.
-The framebuffer front end is simplest and most self-contained.
-Also, you can [contact the developers](https://www.netsurf-browser.org/contact/)
-for help.
+Early development. The tree is the upstream NetSurf import
+(upstream commit `a471a0d`) with the first interface changes applied.
 
+## Design rules
 
-Further documentation
----------------------
+- Two colors: black and white. Neutral grays only for disabled states.
+- Square corners everywhere. No rounded rectangles.
+- Flat surfaces. No gradients, shadows, glow or neon.
+- No animations. State changes are instant.
+- No decoration. If an element carries no information and accepts no input,
+  it does not exist.
 
-* [Developer documentation](https://www.netsurf-browser.org/developers/)
-* [Developer wiki](https://wiki.netsurf-browser.org/Documentation/)
-* [Code style guide](https://www.netsurf-browser.org/developers/StyleGuide.pdf)
+Full rules: [docs/DESIGN.md](docs/DESIGN.md).
+
+## Themes
+
+The GTK3 frontend ships two monochrome stylesheets. Light is the default:
+
+    ./nsgtk3
+
+Dark variant:
+
+    WHATEVER_THEME=dark ./nsgtk3
+
+## Build
+
+Whatever follows the NetSurf build process. The core support libraries
+(libcss, libdom, libhubbub, libnsgif, ...) are separate projects; the
+quickest route is the `netsurf-all` source bundle from
+<https://download.netsurf-browser.org/netsurf/releases/source/>.
+Upstream build documentation: [docs/building-GTK.md](docs/building-GTK.md).
+
+    make TARGET=gtk3 -j$(nproc)
+
+## Roadmap
+
+- Rebrand remaining user-facing text (welcome page, credits).
+- Slim default toolbar and menu set.
+- Full-page monochrome stylesheet for content rendering.
+- Trim unused frontends and assets from the tree.
+
+## Contributing
+
+- Commits are short and single-topic: `topic: what changed`.
+- No comments in code except where the logic is genuinely non-obvious,
+  and then one short line.
+
+## License
+
+GPLv2, inherited from NetSurf. See [COPYING](COPYING). NetSurf remains
+the upstream project; all credit for the engine belongs to the NetSurf
+developers.
+
+---
+
+# Whatever (RU)
+
+Минималистичный веб-браузер на базе NetSurf.
+
+Форк NetSurf со строгим монохромным интерфейсом: плоские поверхности, прямые
+углы, два цвета, никакого декора. Движок отрисовки — лёгкий HTML/CSS-движок
+NetSurf — сохранён без изменений, работа сосредоточена на интерфейсе и
+компактности.
+
+## Темы
+
+По умолчанию светлая ч/б тема. Тёмная:
+
+    WHATEVER_THEME=dark ./nsgtk3
+
+## Сборка
+
+Процесс сборки как у NetSurf (см. [docs/building-GTK.md](docs/building-GTK.md));
+быстрый путь — bundle `netsurf-all` с
+<https://download.netsurf-browser.org/netsurf/releases/source/>.
+
+    make TARGET=gtk3 -j$(nproc)
+
+## Правила проекта
+
+- Коммиты короткие и односложные: `topic: что изменилось`.
+- Без комментариев в коде, кроме действительно неочевидных мест — и там
+  одна короткая строка.
+
+## Лицензия
+
+GPLv2 (наследована от NetSurf), см. [COPYING](COPYING). Заслуги движка —
+разработчикам NetSurf.
