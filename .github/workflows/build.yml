@@ -1,0 +1,51 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  gtk3:
+    runs-on: ubuntu-latest
+    env:
+      PREFIX: ${{ github.workspace }}/ns-inst
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config flex bison \
+            libgtk-3-dev libcurl4-openssl-dev libssl-dev \
+            libxml2-dev libpng-dev libjpeg-dev \
+            libutf8proc-dev
+
+      - name: Install support libraries
+        run: |
+          export PATH="$PREFIX/bin:$PATH"
+          export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
+          for repo in buildsystem libwapcaplet libparserutils libnslog \
+                      nsgenbind libhubbub libdom libcss \
+                      libnsgif libnsbmp libnspsl libnsutils; do
+            git clone --depth 1 https://github.com/netsurf-browser/$repo.git
+            make -C $repo -j"$(nproc)" PREFIX="$PREFIX" install
+          done
+
+      - name: Build Whatever (gtk3)
+        run: |
+          export PATH="$PREFIX/bin:$PATH"
+          export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
+          make TARGET=gtk3 -j"$(nproc)"
+
+      - name: Stage install tree
+        run: |
+          make install TARGET=gtk3 PREFIX="$PREFIX"
+          tar -C "$PREFIX" -czf whatever-gtk3-linux.tar.gz bin share
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: whatever-gtk3-linux
+          path: whatever-gtk3-linux.tar.gz
