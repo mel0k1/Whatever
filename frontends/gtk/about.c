@@ -125,7 +125,7 @@ void nsgtk_about_dialog_init(GtkWindow *parent)
 
 	/* version string */
 	label = gtk_label_new (NULL);
-	name_string = g_markup_printf_escaped("<span size=\"xx-large\" weight=\"bold\">NetSurf %s</span>", netsurf_version);
+	name_string = g_markup_printf_escaped("<span size=\"xx-large\" weight=\"bold\">Whatever %s</span>", netsurf_version);
 	gtk_label_set_markup (GTK_LABEL (label), name_string);
 	g_free(name_string);
 	gtk_label_set_selectable (GTK_LABEL (label), TRUE);

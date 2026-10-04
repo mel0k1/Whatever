@@ -1248,7 +1248,7 @@ void nsgtk_scaffolding_set_title(struct gui_window *gw, const char *title)
 	}
 
 	if (title == NULL || title[0] == '\0') {
-		gtk_window_set_title(gs->window, "NetSurf");
+		gtk_window_set_title(gs->window, "Whatever");
 		return;
 	}
 
