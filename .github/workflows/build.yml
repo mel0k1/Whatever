@@ -42,6 +42,8 @@ jobs:
 
       - name: Stage install tree
         run: |
+          export PATH="$PREFIX/bin:$PATH"
+          export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
           make install TARGET=gtk3 PREFIX="$PREFIX"
           tar -C "$PREFIX" -czf whatever-gtk3-linux.tar.gz bin share
 
