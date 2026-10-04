@@ -43,7 +43,7 @@ cross_lib() {
     clone "$1"
     make -C "$SRC/$1" -j"$JOBS" install PREFIX="$PREFIX" HOST="$CROSS" \
         CC="$CROSS-gcc" CXX="$CROSS-g++" AR="$CROSS-ar" RANLIB="$CROSS-ranlib" \
-        STRIP="$CROSS-strip" WARNFLAGS="-Wall"
+        STRIP="$CROSS-strip" WARNFLAGS="-Wall" ${2:+OPTCFLAGS="$2"}
 }
 
 host_tool buildsystem
@@ -52,7 +52,7 @@ clone nsgenbind
 host_tool nsgenbind
 
 cross_lib libwapcaplet
-cross_lib libparserutils
+cross_lib libparserutils "-DNDEBUG -O2 -DWITHOUT_ICONV_FILTER"
 cross_lib libnslog
 cross_lib libnspsl
 cross_lib libnsutils
@@ -74,6 +74,15 @@ fetch zlib-1.3.1 https://github.com/madler/zlib/archive/refs/tags/v1.3.1.tar.gz
     cd "$SRC/zlib-1.3.1"
     CC="$CROSS-gcc" AR="$CROSS-ar" RANLIB="$CROSS-ranlib" STRIP="$CROSS-strip" \
         ./configure --static --prefix="$PREFIX"
+    make -j"$JOBS"
+    make install
+)
+
+fetch libiconv-1.17 https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.17.tar.gz
+(
+    cd "$SRC/libiconv-1.17"
+    ./configure --host="$CROSS" --prefix="$PREFIX" \
+        --disable-shared --enable-static
     make -j"$JOBS"
     make install
 )
@@ -127,7 +136,8 @@ fetch curl-8.11.1 https://curl.se/download/curl-8.11.1.tar.gz
 
 make -j"$JOBS" TARGET=windows PREFIX="$PREFIX" HOST="$CROSS" \
     CC="$CROSS-gcc" CXX="$CROSS-g++" AR="$CROSS-ar" RANLIB="$CROSS-ranlib" \
-    STRIP="$CROSS-strip" WINDRES="$CROSS-windres" COMMON_WARNFLAGS="-Wall"
+    STRIP="$CROSS-strip" WINDRES="$CROSS-windres" COMMON_WARNFLAGS="-Wall" \
+    NETSURF_USE_LIBICONV_PLUG=NO
 
 mkdir -p "$ROOT/whatever-win64/res"
 cp NetSurf.exe "$ROOT/whatever-win64/"
