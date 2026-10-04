@@ -3,6 +3,13 @@
 The interface is monochrome and utilitarian. If an element does not carry
 information or accept input, it should not exist.
 
+## Scope
+
+The rules cover the browser chrome only: windows, toolbar, menus, dialogs
+and internal pages such as the welcome screen. Web content is never
+restyled: third-party sites render with their own stylesheets, and Whatever
+imposes no stylesheet of its own on them.
+
 ## Color
 
 | Role               | Light                            | Dark                             |
@@ -37,6 +44,7 @@ priority.
 
 ## Non-goals
 
+- No content styling. Sites keep their own styles.
 - No icon themes, no theming engine, no user-facing theme settings.
 - No per-widget exceptions; if a widget looks wrong in monochrome, the widget
   is fixed, not the rule.

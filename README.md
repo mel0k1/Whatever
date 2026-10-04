@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/license-GPL--2.0--only-black?style=flat-square)](COPYING)
 [![Build](https://github.com/mel0k1/Whatever/actions/workflows/build.yml/badge.svg?style=flat-square)](https://github.com/mel0k1/Whatever/actions/workflows/build.yml)
-[![Platform](https://img.shields.io/badge/platform-Linux%20GTK3-black?style=flat-square)](docs/building-GTK.md)
+[![Platform](https://img.shields.io/badge/platform-cross--platform-black?style=flat-square)](docs/building-GTK.md)
 [![Language](https://img.shields.io/badge/language-C-black?style=flat-square)]()
 [![Status](https://img.shields.io/badge/status-alpha-black?style=flat-square)]()
 
@@ -23,6 +23,8 @@ serious, quiet interface with nothing to distract.
 
 Early development. The tree is the upstream NetSurf import
 (upstream commit `a471a0d`) with the first interface changes applied.
+The upstream multi-frontend layout is kept: GTK3, Windows, BeOS/Haiku,
+framebuffer, Qt and RISC OS.
 
 ## Design rules
 
@@ -32,6 +34,8 @@ Early development. The tree is the upstream NetSurf import
 - No animations. State changes are instant.
 - No decoration. If an element carries no information and accepts no input,
   it does not exist.
+- The design covers the browser chrome only. Web content always keeps the
+  site's own styles.
 
 Full rules: [docs/DESIGN.md](docs/DESIGN.md).
 
@@ -57,9 +61,7 @@ Upstream build documentation: [docs/building-GTK.md](docs/building-GTK.md).
 
 ## Roadmap
 
-- Slim default toolbar and menu set.
-- Monochrome stylesheet for content rendering.
-- Native Windows build (frontends/windows).
+- Native Windows build (frontends/windows), see the `windows` workflow.
 - Replace installer banner and throbber assets.
 
 ## Contributing
@@ -83,7 +85,11 @@ developers.
 Форк NetSurf со строгим монохромным интерфейсом: плоские поверхности, прямые
 углы, два цвета, никакого декора. Движок отрисовки — лёгкий HTML/CSS-движок
 NetSurf — сохранён без изменений, работа сосредоточена на интерфейсе и
-компактности.
+компактности. Апстрим-мультиплатформенность сохранена: GTK3, Windows,
+BeOS/Haiku, framebuffer, Qt и RISC OS.
+
+Дизайн касается только оболочки браузера. Сторонние сайты всегда
+рендерятся со своими стилями.
 
 ## Темы
 
