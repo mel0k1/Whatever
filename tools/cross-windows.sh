@@ -58,7 +58,17 @@ cross_lib libnspsl
 cross_lib libnsutils
 cross_lib libhubbub
 cross_lib libcss
-cross_lib libdom
+
+fetch expat-2.6.4 https://github.com/libexpat/libexpat/releases/download/R_2_6_4/expat-2.6.4.tar.gz
+(
+    cd "$SRC/expat-2.6.4"
+    ./configure --host="$CROSS" --prefix="$PREFIX" \
+        --disable-shared --enable-static
+    make -j"$JOBS"
+    make install
+)
+
+cross_lib libdom "-DNDEBUG -O2 -I$PREFIX/include"
 cross_lib libnsgif
 cross_lib libnsbmp
 
