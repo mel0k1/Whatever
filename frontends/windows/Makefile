@@ -73,7 +73,7 @@ install-windows:
 # Package target
 # ----------------------------------------------------------------------------
 
-package-windows: netsurf-installer.exe
+package-windows: whatever-win64-setup.exe
 
 WIN_RES_OBJ := installer.nsi NetSurf.ico netsurf.png welcome.html default.css
 WIN_RES_INS_OBJ := $(addprefix $(FRONTEND_RESOURCES_DIR)/,$(WIN_RES_OBJ)) $(OBJROOT)/messages-en
@@ -90,11 +90,11 @@ $(OBJROOT)/messages-en: $(MESSAGES_TARGET)/en/Messages
 	$(VQ)echo "   MSGCP: $< $@"
 	$(Q)$(INSTALL) -m 644 -T $< $@
 
-netsurf-installer.exe: $(EXETARGET) $(POSTEXES) $(WIN_RES_INS_OBJ)
+whatever-win64-setup.exe: $(EXETARGET) $(POSTEXES) $(WIN_RES_INS_OBJ)
 	$(VQ)echo "MAKENSIS: $@"
 	$(Q)makensis -V$(NSIS_VERBOSE) -NOCD -DOBJROOT=$(OBJROOT) -DRESDIR=$(FRONTEND_RESOURCES_DIR) -DVERSIONMAJOR=$(VERSION_MAJ) -DVERSIONMINOR=$(VERSION_MIN) -DOUTFNAME=$@ $(FRONTEND_RESOURCES_DIR)/installer.nsi
 
 clean-installer:
-	$(VQ)echo "   CLEAN: netsurf-installer.exe"
-	$(Q)$(RM) netsurf-installer.exe
+	$(VQ)echo "   CLEAN: whatever-win64-setup.exe"
+	$(Q)$(RM) whatever-win64-setup.exe
 CLEANS += clean-installer

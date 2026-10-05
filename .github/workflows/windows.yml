@@ -32,17 +32,6 @@ jobs:
       - name: Cross build (mingw64)
         run: ./tools/cross-windows.sh
 
-      - name: Build installer
-        run: |
-          makensis -V2 -DOUTFNAME=whatever-win64-setup.exe \
-            -DVERSIONMAJOR=3 -DVERSIONMINOR=12 -DVERSIONBUILD=0 \
-            -DRESDIR="$PWD/frontends/windows/res" \
-            -DOBJROOT="$PWD/build/x86_64-w64-mingw32-windows" \
-            -DEXEFILE="$PWD/NetSurf.exe" \
-            -DLICFILE="$PWD/COPYING" \
-            frontends/windows/res/installer.nsi
-          test -s whatever-win64-setup.exe
-
       - uses: actions/upload-artifact@v4
         with:
           name: whatever-win64
