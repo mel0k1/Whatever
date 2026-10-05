@@ -131,7 +131,7 @@ toolbar button {
   background-color: #ffffff;
   color: #000000;
   background-image: none;
-  border: none;
+  border: 1px solid transparent;
   box-shadow: none;
   padding: 1px;
   margin: 0;
@@ -140,8 +140,12 @@ toolbar button {
 }
 
 toolbar button:hover, toolbar button:active, toolbar button:checked {
-  background-color: #000000;
-  color: #ffffff;
+  background-color: #ffffff;
+  border: 1px solid #000000;
+}
+
+menuitem:hover image {
+  -gtk-icon-transform: invert(1);
 }
 
 toolbar entry {
