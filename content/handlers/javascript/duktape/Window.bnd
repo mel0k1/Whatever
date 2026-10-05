@@ -113,6 +113,7 @@ window_schedule_callback(void *p)
 			     priv->handle,
 			     priv->repeat_timeout == 0);
 	priv->running = false;
+	html_schedule_reformat(priv->owner->htmlc);
 
 	if (priv->repeat_timeout > 0) {
 		/* Reschedule */
