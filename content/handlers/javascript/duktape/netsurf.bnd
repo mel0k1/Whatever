@@ -69,6 +69,7 @@ void html_schedule_reformat(struct html_content *htmlc);
 #include "HTMLCollection.bnd"
 #include "Location.bnd"
 #include "Navigator.bnd"
+#include "XMLHttpRequest.bnd"
 #include "DOMImplementation.bnd"
 
 /* events */

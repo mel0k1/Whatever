@@ -1,0 +1,946 @@
+class XMLHttpRequest {
+	private void *state;
+};
+
+prologue XMLHttpRequest()
+%{
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include "content/fetch.h"
+#include "content/llcache.h"
+#include "content/hlcache.h"
+#include "utils/errors.h"
+#include "html/html.h"
+#include "html/private.h"
+
+extern void dukky_window_drain_microtasks(duk_context *ctx);
+extern void dukky_window_reformat_request(duk_context *ctx);
+
+#define XHR_MAP MAGIC(XMLHttpRequestMap)
+#define XHR_MAX_REDIRECT 20
+#define XHR_MAX_BODY ((size_t)256 * 1024 * 1024)
+
+typedef struct xhr_state_s {
+	duk_context *ctx;
+	struct fetch *fetch;
+	nsurl *url;
+	nsurl *base;
+	char *method;
+	char *body;
+	char *mime;
+	char *resp_type;
+	char **reqhdrs;
+	int n_reqhdrs;
+	uint8_t *resp;
+	size_t resp_len;
+	size_t resp_alloc;
+	size_t resp_total;
+	char **reshdrs;
+	int n_reshdrs;
+	char *status_text;
+	long status_code;
+	int ready_state;
+	int redirect_count;
+	bool sent;
+	bool aborted;
+	bool with_credentials;
+	unsigned int timeout_ms;
+} xhr_state_t;
+
+static void xhr_dispatch(xhr_state_t *st, const char *kind);
+static void xhr_finish(xhr_state_t *st, bool success);
+static nserror xhr_start_fetch(xhr_state_t *st);
+static void xhr_redirect(xhr_state_t *st, const char *loc);
+static void xhr_fetch_callback(const fetch_msg *msg, void *p);
+
+static void xhr_free_response(xhr_state_t *st)
+{
+	int i;
+	for (i = 0; i < st->n_reshdrs; i++) {
+		free(st->reshdrs[i]);
+	}
+	free(st->reshdrs);
+	st->reshdrs = NULL;
+	st->n_reshdrs = 0;
+	free(st->resp);
+	st->resp = NULL;
+	st->resp_len = 0;
+	st->resp_alloc = 0;
+	st->resp_total = 0;
+	free(st->status_text);
+	st->status_text = NULL;
+	st->status_code = 0;
+}
+
+static void xhr_free_request(xhr_state_t *st)
+{
+	int i;
+	for (i = 0; i < st->n_reqhdrs; i++) {
+		free(st->reqhdrs[i]);
+	}
+	free(st->reqhdrs);
+	st->reqhdrs = NULL;
+	st->n_reqhdrs = 0;
+	free(st->body);
+	st->body = NULL;
+	free(st->method);
+	st->method = NULL;
+	if (st->url != NULL) {
+		nsurl_unref(st->url);
+		st->url = NULL;
+	}
+	if (st->base != NULL) {
+		nsurl_unref(st->base);
+		st->base = NULL;
+	}
+}
+
+static void xhr_unregister(xhr_state_t *st)
+{
+	duk_context *ctx = st->ctx;
+	if (ctx == NULL) {
+		return;
+	}
+	duk_push_global_object(ctx);
+	duk_get_prop_string(ctx, -1, XHR_MAP);
+	if (duk_is_object(ctx, -1)) {
+		duk_push_pointer(ctx, (void *)st);
+		duk_del_prop(ctx, -2);
+	}
+	duk_pop_2(ctx);
+}
+
+static void xhr_register(xhr_state_t *st)
+{
+	duk_context *ctx = st->ctx;
+	if (ctx == NULL) {
+		return;
+	}
+	duk_push_global_object(ctx);
+	duk_get_prop_string(ctx, -1, XHR_MAP);
+	if (duk_is_undefined(ctx, -1)) {
+		duk_pop(ctx);
+		duk_push_object(ctx);
+		duk_dup(ctx, -1);
+		duk_put_prop_string(ctx, -3, XHR_MAP);
+	}
+	duk_push_pointer(ctx, (void *)st);
+	duk_push_this(ctx);
+	duk_put_prop(ctx, -3);
+	duk_pop_2(ctx);
+}
+
+static char *xhr_trim_hdr(char *line)
+{
+	size_t l = strlen(line);
+	while (l > 0 && (line[l - 1] == '\r' || line[l - 1] == '\n' ||
+			 line[l - 1] == ' ' || line[l - 1] == '\t')) {
+		line[--l] = '\0';
+	}
+	return line;
+}
+
+static bool xhr_key_is(const char *name, size_t len, const char *want)
+{
+	size_t i;
+	if (strlen(want) != len) {
+		return false;
+	}
+	for (i = 0; i < len; i++) {
+		int a = (unsigned char)name[i];
+		if (a >= 'A' && a <= 'Z') {
+			a += 32;
+		}
+		if (a != (unsigned char)want[i]) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool xhr_name_is(const char *line, const char *want)
+{
+	size_t i;
+	for (i = 0; want[i] != '\0'; i++) {
+		int a = (unsigned char)line[i];
+		if (a >= 'A' && a <= 'Z') {
+			a += 32;
+		}
+		if (a != (unsigned char)want[i]) {
+			return false;
+		}
+	}
+	return line[i] == ':';
+}
+
+static bool xhr_is_status_line(const char *line)
+{
+	size_t i;
+	for (i = 0; i < 5; i++) {
+		int a = (unsigned char)line[i];
+		int b = (unsigned char)"HTTP/"[i];
+		if (a >= 'A' && a <= 'Z') {
+			a += 32;
+		}
+		if (a != b) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static duk_ret_t xhr_json_decode(duk_context *ctx, void *ud)
+{
+	(void)ud;
+	duk_json_decode(ctx, -1);
+	return 1;
+}
+
+static void xhr_on_header(xhr_state_t *st, const uint8_t *buf, size_t len)
+{
+	char *line;
+	char **nl;
+	const char *p;
+	const char *v;
+	if (st->aborted || len == 0) {
+		return;
+	}
+	line = malloc(len + 1);
+	if (line == NULL) {
+		return;
+	}
+	memcpy(line, buf, len);
+	line[len] = '\0';
+	xhr_trim_hdr(line);
+	if (line[0] == '\0') {
+		free(line);
+		return;
+	}
+	if (xhr_is_status_line(line)) {
+		long code = 0;
+		p = line + 5;
+		while (*p == ' ' || *p == '\t') {
+			p++;
+		}
+		while (*p >= '0' && *p <= '9') {
+			code = code * 10 + (*p - '0');
+			p++;
+		}
+		if (code < 200) {
+			free(line);
+			return;
+		}
+		while (*p == ' ') {
+			p++;
+		}
+		free(st->status_text);
+		st->status_text = strdup(p);
+		st->status_code = code;
+		st->resp_total = 0;
+		if (st->ready_state < 2) {
+			st->ready_state = 2;
+			xhr_dispatch(st, "readystatechange");
+			if (st->aborted) {
+				free(line);
+				return;
+			}
+		}
+		free(line);
+		return;
+	}
+	if (xhr_name_is(line, "content-length")) {
+		v = strchr(line, ':');
+		if (v != NULL) {
+			v++;
+			while (*v == ' ' || *v == '\t') {
+				v++;
+			}
+			st->resp_total = (size_t)strtoul(v, NULL, 10);
+		}
+	}
+	nl = realloc(st->reshdrs, (st->n_reshdrs + 1) * sizeof(char *));
+	if (nl == NULL) {
+		free(line);
+		return;
+	}
+	st->reshdrs = nl;
+	st->reshdrs[st->n_reshdrs] = line;
+	st->n_reshdrs++;
+}
+
+static void xhr_on_data(xhr_state_t *st, const uint8_t *buf, size_t len)
+{
+	size_t na;
+	uint8_t *nb;
+	if (st->aborted || len == 0) {
+		return;
+	}
+	if (st->resp_len + len > XHR_MAX_BODY) {
+		if (st->fetch != NULL) {
+			fetch_abort(st->fetch);
+			st->fetch = NULL;
+		}
+		xhr_finish(st, false);
+		return;
+	}
+	if (st->resp_len + len > st->resp_alloc) {
+		na = st->resp_alloc * 2;
+		if (na < st->resp_len + len) {
+			na = st->resp_len + len;
+		}
+		nb = realloc(st->resp, na);
+		if (nb == NULL) {
+			return;
+		}
+		st->resp = nb;
+		st->resp_alloc = na;
+	}
+	memcpy(st->resp + st->resp_len, buf, len);
+	st->resp_len += len;
+	if (st->ready_state < 3) {
+		if (st->ready_state < 2) {
+			st->ready_state = 2;
+			xhr_dispatch(st, "readystatechange");
+			if (st->aborted) {
+				return;
+			}
+		}
+		st->ready_state = 3;
+		xhr_dispatch(st, "readystatechange");
+		if (st->aborted) {
+			return;
+		}
+	}
+	xhr_dispatch(st, "progress");
+}
+
+
+static void xhr_finish(xhr_state_t *st, bool success)
+{
+	duk_context *ctx = st->ctx;
+	if (st->fetch != NULL) {
+		st->fetch = NULL;
+	}
+	if (success && st->status_code == 0) {
+		st->status_code = 200;
+	}
+	if (st->ready_state < 2) {
+		st->ready_state = 2;
+		xhr_dispatch(st, "readystatechange");
+	}
+	if (st->ready_state < 3) {
+		st->ready_state = 3;
+		xhr_dispatch(st, "readystatechange");
+	}
+	st->ready_state = 4;
+	xhr_dispatch(st, "readystatechange");
+	if (success) {
+		xhr_dispatch(st, "load");
+	} else {
+		xhr_dispatch(st, "error");
+	}
+	xhr_dispatch(st, "loadend");
+	xhr_unregister(st);
+	if (ctx != NULL) {
+		dukky_window_drain_microtasks(ctx);
+		dukky_window_reformat_request(ctx);
+	}
+}
+
+static nserror xhr_start_fetch(xhr_state_t *st)
+{
+	const char **hdrs = NULL;
+	nserror err;
+	int i;
+	bool postlike;
+	if (st->url == NULL) {
+		return NSERROR_BAD_URL;
+	}
+	postlike = (st->method != NULL &&
+		    strcmp(st->method, "GET") != 0 &&
+		    strcmp(st->method, "HEAD") != 0);
+	if (st->n_reqhdrs > 0) {
+		hdrs = malloc((st->n_reqhdrs + 1) * sizeof(char *));
+		if (hdrs == NULL) {
+			return NSERROR_NOMEM;
+		}
+		for (i = 0; i < st->n_reqhdrs; i++) {
+			hdrs[i] = st->reqhdrs[i];
+		}
+		hdrs[st->n_reqhdrs] = NULL;
+	}
+	err = fetch_start(st->url,
+			  st->base,
+			  xhr_fetch_callback,
+			  st,
+			  false,
+			  (postlike && st->body != NULL) ? st->body : NULL,
+			  NULL,
+			  false,
+			  false,
+			  hdrs,
+			  &st->fetch);
+	free(hdrs);
+	if (err != NSERROR_OK) {
+		st->fetch = NULL;
+	}
+	return err;
+}
+
+static void xhr_redirect(xhr_state_t *st, const char *loc)
+{
+	nsurl *next = NULL;
+	nserror err;
+	if (st->fetch != NULL) {
+		st->fetch = NULL;
+	}
+	if (st->aborted) {
+		return;
+	}
+	if (st->redirect_count >= XHR_MAX_REDIRECT) {
+		xhr_finish(st, false);
+		return;
+	}
+	err = nsurl_join(st->url, loc, &next);
+	if (err != NSERROR_OK || next == NULL) {
+		xhr_finish(st, false);
+		return;
+	}
+	nsurl_unref(st->url);
+	st->url = next;
+	st->redirect_count++;
+	xhr_free_response(st);
+	st->ready_state = 1;
+	err = xhr_start_fetch(st);
+	if (err != NSERROR_OK) {
+		xhr_finish(st, false);
+	}
+}
+
+static void xhr_fetch_callback(const fetch_msg *msg, void *p)
+{
+	xhr_state_t *st = (xhr_state_t *)p;
+	switch (msg->type) {
+	case FETCH_HEADER:
+		xhr_on_header(st, msg->data.header_or_data.buf, msg->data.header_or_data.len);
+		break;
+	case FETCH_DATA:
+		xhr_on_data(st, msg->data.header_or_data.buf, msg->data.header_or_data.len);
+		break;
+	case FETCH_FINISHED:
+	case FETCH_NOTMODIFIED:
+		xhr_finish(st, true);
+		break;
+	case FETCH_REDIRECT:
+		xhr_redirect(st, msg->data.redirect);
+		break;
+	case FETCH_TIMEDOUT:
+	case FETCH_CERT_ERR:
+	case FETCH_SSL_ERR:
+	case FETCH_AUTH:
+	case FETCH_ERROR:
+		xhr_finish(st, false);
+		break;
+	default:
+		break;
+	}
+}
+
+static void xhr_dispatch(xhr_state_t *st, const char *kind)
+{
+	duk_context *ctx = st->ctx;
+	char buf[24];
+	if (ctx == NULL) {
+		return;
+	}
+	duk_push_global_object(ctx);
+	duk_get_prop_string(ctx, -1, XHR_MAP);
+	if (duk_is_object(ctx, -1)) {
+		duk_push_pointer(ctx, (void *)st);
+		duk_get_prop(ctx, -2);
+		if (duk_is_object(ctx, -1)) {
+			duk_get_prop_string(ctx, -1, "__xhrDispatch");
+			if (duk_is_function(ctx, -1)) {
+				duk_dup(ctx, -2);
+				duk_push_string(ctx, kind);
+				duk_push_uint(ctx, (duk_uint_t)st->resp_len);
+				duk_push_uint(ctx, (duk_uint_t)st->resp_total);
+				(void)dukky_pcall(ctx, 4, true);
+				duk_pop(ctx);
+			} else {
+				duk_pop(ctx);
+				snprintf(buf, sizeof(buf), "on%s", kind);
+				duk_get_prop_string(ctx, -1, buf);
+				if (duk_is_function(ctx, -1)) {
+					duk_push_string(ctx, kind);
+					(void)dukky_pcall(ctx, 1, true);
+				}
+				duk_pop(ctx);
+			}
+		}
+		duk_pop(ctx);
+	}
+	duk_pop_2(ctx);
+}
+%};
+
+init XMLHttpRequest()
+%{
+	xhr_state_t *st = calloc(1, sizeof(xhr_state_t));
+	priv->state = (void *)st;
+	if (st != NULL) {
+		st->ctx = ctx;
+		st->ready_state = 0;
+	}
+%}
+
+fini XMLHttpRequest()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	if (st != NULL) {
+		st->aborted = true;
+		if (st->fetch != NULL) {
+			fetch_abort(st->fetch);
+			st->fetch = NULL;
+		}
+		xhr_unregister(st);
+		xhr_free_response(st);
+		xhr_free_request(st);
+		free(st->mime);
+		free(st->resp_type);
+		st->ctx = NULL;
+		free(st);
+	}
+	priv->state = NULL;
+%}
+
+method XMLHttpRequest::open()
+%{
+	duk_idx_t argc = duk_get_top(ctx);
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	window_private_t *winp;
+	nsurl *joined = NULL;
+	nsurl *base = NULL;
+	nserror err;
+	const char *m;
+	const char *u;
+	duk_size_t ml, ul;
+	char *nm;
+	size_t i;
+	if (st == NULL) {
+		return 0;
+	}
+	if (st->fetch != NULL) {
+		return duk_error(ctx, DUK_ERR_TYPE_ERROR, "InvalidStateError");
+	}
+	if (argc < 2) {
+		return duk_error(ctx, DUK_ERR_TYPE_ERROR, "SyntaxError");
+	}
+	m = duk_safe_to_lstring(ctx, 0, &ml);
+	u = duk_safe_to_lstring(ctx, 1, &ul);
+	if (m == NULL || u == NULL || ml == 0 || ul == 0) {
+		return duk_error(ctx, DUK_ERR_TYPE_ERROR, "SyntaxError");
+	}
+	duk_push_global_object(ctx);
+	duk_get_prop_string(ctx, -1, PRIVATE_MAGIC);
+	winp = (window_private_t *)duk_get_pointer(ctx, -1);
+	duk_pop_2(ctx);
+	if (winp != NULL && winp->htmlc != NULL) {
+		base = llcache_handle_get_url(winp->htmlc->base.llcache);
+	}
+	if (base != NULL) {
+		err = nsurl_join(base, u, &joined);
+	} else {
+		err = nsurl_create(u, &joined);
+	}
+	if (err != NSERROR_OK || joined == NULL) {
+		return duk_error(ctx, DUK_ERR_TYPE_ERROR, "SyntaxError");
+	}
+	xhr_free_response(st);
+	xhr_free_request(st);
+	nm = malloc(ml + 1);
+	if (nm == NULL) {
+		nsurl_unref(joined);
+		return 0;
+	}
+	for (i = 0; i < ml; i++) {
+		char c = m[i];
+		if (c >= 'a' && c <= 'z') {
+			c -= 32;
+		}
+		nm[i] = c;
+	}
+	nm[ml] = '\0';
+	st->method = nm;
+	st->url = joined;
+	if (base != NULL) {
+		nsurl_ref(base);
+		st->base = base;
+	}
+	st->sent = false;
+	st->aborted = false;
+	st->redirect_count = 0;
+	st->ready_state = 1;
+	return 0;
+%}
+
+method XMLHttpRequest::setRequestHeader()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	const char *n;
+	const char *v;
+	duk_size_t nl, vl;
+	char *rec;
+	size_t i, skip;
+	char **nr;
+	if (st == NULL) {
+		return 0;
+	}
+	if (st->url == NULL || st->fetch != NULL) {
+		return duk_error(ctx, DUK_ERR_TYPE_ERROR, "InvalidStateError");
+	}
+	n = duk_safe_to_lstring(ctx, 0, &nl);
+	v = duk_safe_to_lstring(ctx, 1, &vl);
+	if (n == NULL || v == NULL || nl == 0) {
+		return duk_error(ctx, DUK_ERR_TYPE_ERROR, "SyntaxError");
+	}
+	for (i = 0; i < nl; i++) {
+		if (n[i] == '\r' || n[i] == '\n' || n[i] == ':') {
+			return duk_error(ctx, DUK_ERR_TYPE_ERROR, "SyntaxError");
+		}
+	}
+	skip = 0;
+	while (skip < vl && (v[skip] == ' ' || v[skip] == '\t')) {
+		skip++;
+	}
+	v += skip;
+	vl -= skip;
+	while (vl > 0 && (v[vl - 1] == ' ' || v[vl - 1] == '\t')) {
+		vl--;
+	}
+	for (i = 0; i < vl; i++) {
+		if (v[i] == '\r' || v[i] == '\n') {
+			return duk_error(ctx, DUK_ERR_TYPE_ERROR, "SyntaxError");
+		}
+	}
+	rec = malloc(nl + 2 + vl + 1);
+	if (rec == NULL) {
+		return 0;
+	}
+	memcpy(rec, n, nl);
+	rec[nl] = ':';
+	rec[nl + 1] = ' ';
+	memcpy(rec + nl + 2, v, vl);
+	rec[nl + 2 + vl] = '\0';
+	nr = realloc(st->reqhdrs, (st->n_reqhdrs + 1) * sizeof(char *));
+	if (nr == NULL) {
+		free(rec);
+		return 0;
+	}
+	st->reqhdrs = nr;
+	st->reqhdrs[st->n_reqhdrs] = rec;
+	st->n_reqhdrs++;
+	return 0;
+%}
+
+method XMLHttpRequest::send()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	duk_size_t bl;
+	const char *b;
+	char *nb;
+	nserror err;
+	bool postlike;
+	if (st == NULL) {
+		return 0;
+	}
+	if (st->url == NULL) {
+		return duk_error(ctx, DUK_ERR_TYPE_ERROR, "InvalidStateError");
+	}
+	if (st->fetch != NULL) {
+		return 0;
+	}
+	postlike = (st->method != NULL &&
+		    strcmp(st->method, "GET") != 0 &&
+		    strcmp(st->method, "HEAD") != 0);
+	if (postlike && duk_get_top(ctx) > 0 &&
+	    !duk_is_null(ctx, 0) && !duk_is_undefined(ctx, 0)) {
+		b = duk_safe_to_lstring(ctx, 0, &bl);
+		if (b != NULL && bl > 0) {
+			nb = malloc(bl + 1);
+			if (nb != NULL) {
+				memcpy(nb, b, bl);
+				nb[bl] = '\0';
+				free(st->body);
+				st->body = nb;
+			}
+		}
+	}
+	err = xhr_start_fetch(st);
+	if (err != NSERROR_OK) {
+		return duk_error(ctx, DUK_ERR_TYPE_ERROR, "NetworkError");
+	}
+	st->sent = true;
+	xhr_register(st);
+	xhr_dispatch(st, "loadstart");
+	xhr_dispatch(st, "readystatechange");
+	return 0;
+%}
+
+method XMLHttpRequest::abort()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	bool active;
+	if (st == NULL) {
+		return 0;
+	}
+	active = (st->fetch != NULL);
+	if (active) {
+		st->aborted = true;
+		fetch_abort(st->fetch);
+		st->fetch = NULL;
+		xhr_unregister(st);
+	}
+	if (active || st->ready_state != 0) {
+		xhr_free_response(st);
+		st->ready_state = 0;
+		xhr_dispatch(st, "abort");
+		xhr_dispatch(st, "loadend");
+	}
+	return 0;
+%}
+
+getter XMLHttpRequest::readyState()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	duk_push_int(ctx, st != NULL ? st->ready_state : 0);
+	return 1;
+%}
+
+getter XMLHttpRequest::status()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	duk_push_int(ctx, st != NULL ? (int)st->status_code : 0);
+	return 1;
+%}
+
+getter XMLHttpRequest::statusText()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	if (st != NULL && st->status_text != NULL) {
+		duk_push_string(ctx, st->status_text);
+	} else {
+		duk_push_string(ctx, "");
+	}
+	return 1;
+%}
+
+getter XMLHttpRequest::responseText()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	if (st == NULL) {
+		duk_push_string(ctx, "");
+		return 1;
+	}
+	duk_push_lstring(ctx, (const char *)st->resp, st->resp_len);
+	return 1;
+%}
+
+getter XMLHttpRequest::response()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	if (st == NULL) {
+		duk_push_string(ctx, "");
+		return 1;
+	}
+	if (st->resp_type != NULL && strcmp(st->resp_type, "json") == 0) {
+		duk_push_lstring(ctx, (const char *)st->resp, st->resp_len);
+		if (duk_safe_call(ctx, xhr_json_decode, NULL, 1, 1) != DUK_EXEC_SUCCESS) {
+			duk_pop(ctx);
+			duk_push_null(ctx);
+		}
+		return 1;
+	}
+	duk_push_lstring(ctx, (const char *)st->resp, st->resp_len);
+	return 1;
+%}
+
+getter XMLHttpRequest::responseURL()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	char *s = NULL;
+	size_t l = 0;
+	if (st != NULL && st->url != NULL &&
+	    nsurl_get(st->url, NSURL_COMPLETE, &s, &l) == NSERROR_OK &&
+	    s != NULL) {
+		duk_push_lstring(ctx, s, l);
+		free(s);
+	} else {
+		duk_push_string(ctx, "");
+	}
+	return 1;
+%}
+
+getter XMLHttpRequest::withCredentials()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	duk_push_boolean(ctx, st != NULL ? st->with_credentials : false);
+	return 1;
+%}
+
+setter XMLHttpRequest::withCredentials()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	if (st != NULL) {
+		st->with_credentials = duk_to_boolean(ctx, 0) ? true : false;
+	}
+	return 0;
+%}
+
+getter XMLHttpRequest::timeout()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	duk_push_uint(ctx, st != NULL ? st->timeout_ms : 0);
+	return 1;
+%}
+
+setter XMLHttpRequest::timeout()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	if (st != NULL) {
+		st->timeout_ms = (unsigned int)duk_to_uint32(ctx, 0);
+	}
+	return 0;
+%}
+
+getter XMLHttpRequest::responseType()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	if (st != NULL && st->resp_type != NULL) {
+		duk_push_string(ctx, st->resp_type);
+	} else {
+		duk_push_string(ctx, "text");
+	}
+	return 1;
+%}
+
+setter XMLHttpRequest::responseType()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	const char *t;
+	duk_size_t tl;
+	char *nt;
+	if (st == NULL) {
+		return 0;
+	}
+	t = duk_safe_to_lstring(ctx, 0, &tl);
+	if (t != NULL) {
+		nt = malloc(tl + 1);
+		if (nt != NULL) {
+			memcpy(nt, t, tl);
+			nt[tl] = '\0';
+			free(st->resp_type);
+			st->resp_type = nt;
+		}
+	}
+	return 0;
+%}
+
+method XMLHttpRequest::getResponseHeader()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	const char *n;
+	duk_size_t nl;
+	int i;
+	if (st == NULL) {
+		duk_push_null(ctx);
+		return 1;
+	}
+	n = duk_safe_to_lstring(ctx, 0, &nl);
+	if (n == NULL) {
+		duk_push_null(ctx);
+		return 1;
+	}
+	if (st->mime != NULL && xhr_key_is(n, nl, "content-type")) {
+		duk_push_string(ctx, st->mime);
+		return 1;
+	}
+	for (i = 0; i < st->n_reshdrs; i++) {
+		const char *line = st->reshdrs[i];
+		const char *colon = strchr(line, ':');
+		const char *val;
+		if (colon == NULL) {
+			continue;
+		}
+		if (!xhr_key_is(line, (size_t)(colon - line), n)) {
+			continue;
+		}
+		val = colon + 1;
+		while (*val == ' ' || *val == '\t') {
+			val++;
+		}
+		duk_push_string(ctx, val);
+		return 1;
+	}
+	duk_push_null(ctx);
+	return 1;
+%}
+
+method XMLHttpRequest::getAllResponseHeaders()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	size_t total = 0;
+	size_t off = 0;
+	char *out;
+	int i;
+	if (st == NULL) {
+		duk_push_string(ctx, "");
+		return 1;
+	}
+	for (i = 0; i < st->n_reshdrs; i++) {
+		total += strlen(st->reshdrs[i]) + 2;
+	}
+	out = malloc(total + 1);
+	if (out == NULL) {
+		duk_push_string(ctx, "");
+		return 1;
+	}
+	for (i = 0; i < st->n_reshdrs; i++) {
+		size_t l = strlen(st->reshdrs[i]);
+		memcpy(out + off, st->reshdrs[i], l);
+		off += l;
+		out[off++] = '\r';
+		out[off++] = '\n';
+	}
+	out[off] = '\0';
+	duk_push_lstring(ctx, out, off);
+	free(out);
+	return 1;
+%}
+
+method XMLHttpRequest::overrideMimeType()
+%{
+	xhr_state_t *st = (xhr_state_t *)priv->state;
+	const char *m;
+	duk_size_t ml;
+	char *nm;
+	if (st == NULL) {
+		return 0;
+	}
+	m = duk_safe_to_lstring(ctx, 0, &ml);
+	if (m == NULL) {
+		return 0;
+	}
+	nm = malloc(ml + 1);
+	if (nm == NULL) {
+		return 0;
+	}
+	memcpy(nm, m, ml);
+	nm[ml] = '\0';
+	free(st->mime);
+	st->mime = nm;
+	return 0;
+%}
