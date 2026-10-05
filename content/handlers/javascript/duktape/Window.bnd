@@ -24,6 +24,10 @@ class Window {
 #include "netsurf/misc.h"
 #include "utils/ring.h"
 #include "netsurf/inttypes.h"
+#include <string.h>
+#include <stdio.h>
+#include "css/select.h"
+#include "css/utils.h"
 
 #define WINDOW_CALLBACKS MAGIC(WindowCallbacks)
 #define HANDLER_MAGIC MAGIC(HANDLER_MAP)
@@ -294,6 +298,205 @@ void dukky_window_reformat_request(duk_context *ctx)
 	duk_pop_2(ctx);
 	if (winpriv != NULL && winpriv->htmlc != NULL) {
 		html_schedule_reformat(winpriv->htmlc);
+	}
+}
+
+
+static const char *dukky_window_unit_str(css_unit unit)
+{
+	switch (unit) {
+	case CSS_UNIT_EX: return "ex";
+	case CSS_UNIT_EM: return "em";
+	case CSS_UNIT_IN: return "in";
+	case CSS_UNIT_CM: return "cm";
+	case CSS_UNIT_MM: return "mm";
+	case CSS_UNIT_PT: return "pt";
+	case CSS_UNIT_PC: return "pc";
+	case CSS_UNIT_CH: return "ch";
+	case CSS_UNIT_REM: return "rem";
+	case CSS_UNIT_LH: return "lh";
+	case CSS_UNIT_VH: return "vh";
+	case CSS_UNIT_VW: return "vw";
+	case CSS_UNIT_VI: return "vi";
+	case CSS_UNIT_VB: return "vb";
+	case CSS_UNIT_VMIN: return "vmin";
+	case CSS_UNIT_VMAX: return "vmax";
+	case CSS_UNIT_Q: return "q";
+	case CSS_UNIT_PCT: return "%";
+	case CSS_UNIT_PX:
+	default: return "px";
+	}
+}
+
+static void dukky_window_fmt_num(char *out, size_t outlen, double v)
+{
+	size_t l;
+	snprintf(out, outlen, "%.3f", v);
+	l = strlen(out);
+	while (l > 1 && out[l - 1] == '0') {
+		out[--l] = '\0';
+	}
+	if (l > 1 && out[l - 1] == '.') {
+		out[--l] = '\0';
+	}
+	if (strcmp(out, "-0") == 0) {
+		snprintf(out, outlen, "0");
+	}
+}
+
+static void dukky_window_push_dim(duk_context *ctx, const char *name,
+		css_fixed len, css_unit unit)
+{
+	char buf[56];
+	size_t l;
+	dukky_window_fmt_num(buf, sizeof buf, ((double)len) / 256.0);
+	l = strlen(buf);
+	snprintf(buf + l, sizeof buf - l, "%s", dukky_window_unit_str(unit));
+	duk_push_string(ctx, buf);
+	duk_put_prop_string(ctx, -2, name);
+}
+
+static void dukky_window_push_color(duk_context *ctx, const char *name,
+		css_color color)
+{
+	char buf[64];
+	unsigned int a = (color >> 24) & 0xFF;
+	unsigned int r = (color >> 16) & 0xFF;
+	unsigned int g = (color >> 8) & 0xFF;
+	unsigned int b = color & 0xFF;
+	if (a == 0xFF) {
+		snprintf(buf, sizeof buf, "#%02x%02x%02x", r, g, b);
+	} else {
+		char num[32];
+		dukky_window_fmt_num(num, sizeof num, ((double)a) / 255.0);
+		snprintf(buf, sizeof buf, "rgba(%u, %u, %u, %s)", r, g, b, num);
+	}
+	duk_push_string(ctx, buf);
+	duk_put_prop_string(ctx, -2, name);
+}
+
+static void dukky_window_style_put(duk_context *ctx, const char *name,
+		const char *val)
+{
+	duk_push_string(ctx, val);
+	duk_put_prop_string(ctx, -2, name);
+}
+
+static duk_ret_t dukky_window_style_get_prop(duk_context *ctx)
+{
+	const char *name;
+	char norm[128];
+	size_t i;
+	size_t o = 0;
+	name = duk_safe_to_string(ctx, 0);
+	for (i = 0; name[i] != '\0' && o + 2 < sizeof norm; i++) {
+		if (name[i] >= 'A' && name[i] <= 'Z') {
+			norm[o++] = '-';
+		}
+		norm[o++] = (char)(name[i] | 0x20);
+	}
+	norm[o] = '\0';
+	duk_push_this(ctx);
+	duk_get_prop_string(ctx, -1, norm);
+	if (duk_is_undefined(ctx, -1)) {
+		duk_pop(ctx);
+		duk_push_string(ctx, "");
+	}
+	return 1;
+}
+
+static duk_ret_t dukky_window_style_get_prio(duk_context *ctx)
+{
+	duk_push_string(ctx, "");
+	return 1;
+}
+
+static const char *dukky_window_display_str(uint8_t d)
+{
+	switch (d) {
+	case CSS_DISPLAY_NONE: return "none";
+	case CSS_DISPLAY_BLOCK: return "block";
+	case CSS_DISPLAY_LIST_ITEM: return "list-item";
+	case CSS_DISPLAY_RUN_IN: return "run-in";
+	case CSS_DISPLAY_INLINE_BLOCK: return "inline-block";
+	case CSS_DISPLAY_TABLE: return "table";
+	case CSS_DISPLAY_INLINE_TABLE: return "inline-table";
+	case CSS_DISPLAY_TABLE_ROW_GROUP: return "table-row-group";
+	case CSS_DISPLAY_TABLE_HEADER_GROUP: return "table-header-group";
+	case CSS_DISPLAY_TABLE_FOOTER_GROUP: return "table-footer-group";
+	case CSS_DISPLAY_TABLE_ROW: return "table-row";
+	case CSS_DISPLAY_TABLE_COLUMN_GROUP: return "table-column-group";
+	case CSS_DISPLAY_TABLE_COLUMN: return "table-column";
+	case CSS_DISPLAY_TABLE_CELL: return "table-cell";
+	case CSS_DISPLAY_TABLE_CAPTION: return "table-caption";
+	case CSS_DISPLAY_FLEX: return "flex";
+	case CSS_DISPLAY_INLINE_FLEX: return "inline-flex";
+	case CSS_DISPLAY_GRID: return "grid";
+	case CSS_DISPLAY_INLINE_GRID: return "inline-grid";
+	case CSS_DISPLAY_INLINE:
+	default: return "inline";
+	}
+}
+
+static css_stylesheet *dukky_window_inline_style(struct html_content *htmlc,
+		dom_node *n)
+{
+	dom_string *s = NULL;
+	css_stylesheet *st;
+	dom_exception err;
+
+	err = dom_element_get_attribute((dom_element *)n,
+			corestring_dom_style, &s);
+	if (err != DOM_NO_ERR) {
+		return NULL;
+	}
+	if (s == NULL) {
+		return NULL;
+	}
+	st = nscss_create_inline_style(
+			(const uint8_t *)dom_string_data(s),
+			dom_string_byte_length(s),
+			htmlc->encoding,
+			nsurl_access(htmlc->base_url),
+			htmlc->quirks != DOM_DOCUMENT_QUIRKS_MODE_NONE);
+	dom_string_unref(s);
+	return st;
+}
+
+static const char *dukky_window_border_style_str(uint8_t v)
+{
+	switch (v) {
+	case CSS_BORDER_STYLE_HIDDEN: return "hidden";
+	case CSS_BORDER_STYLE_DOTTED: return "dotted";
+	case CSS_BORDER_STYLE_DASHED: return "dashed";
+	case CSS_BORDER_STYLE_SOLID: return "solid";
+	case CSS_BORDER_STYLE_DOUBLE: return "double";
+	case CSS_BORDER_STYLE_GROOVE: return "groove";
+	case CSS_BORDER_STYLE_RIDGE: return "ridge";
+	case CSS_BORDER_STYLE_INSET: return "inset";
+	case CSS_BORDER_STYLE_OUTSET: return "outset";
+	case CSS_BORDER_STYLE_NONE:
+	default: return "none";
+	}
+}
+
+static void dukky_window_border_width(duk_context *ctx, const char *name,
+		uint8_t kind, css_fixed len, css_unit unit)
+{
+	switch (kind) {
+	case CSS_BORDER_WIDTH_WIDTH:
+		dukky_window_push_dim(ctx, name, len, unit);
+		break;
+	case CSS_BORDER_WIDTH_THIN:
+		dukky_window_style_put(ctx, name, "1px");
+		break;
+	case CSS_BORDER_WIDTH_THICK:
+		dukky_window_style_put(ctx, name, "5px");
+		break;
+	case CSS_BORDER_WIDTH_MEDIUM:
+	default:
+		dukky_window_style_put(ctx, name, "3px");
+		break;
 	}
 }
 
@@ -592,6 +795,536 @@ method Window::clearInterval()
 	window_remove_callback_by_handle(ctx, priv, (size_t) handle);
 
 	return 0;
+%}
+
+method Window::getComputedStyle()
+%{
+	node_private_t *npriv = NULL;
+	struct html_content *htmlc = priv->htmlc;
+	dom_node *chain[64];
+	int depth = 0;
+	dom_node *cur;
+	dom_node *parent;
+	css_select_results *res = NULL;
+	css_select_results *prev = NULL;
+	css_select_results *rootres = NULL;
+	const css_computed_style *parent_style = NULL;
+	const css_computed_style *root_style = NULL;
+	const css_computed_style *style = NULL;
+	nscss_select_ctx sctx;
+	css_stylesheet *inline_style;
+	css_fixed len;
+	css_unit unit;
+	css_color col;
+	lwc_string **fams;
+	lwc_string **fam;
+	lwc_string *burl;
+	int32_t zi;
+	css_fixed op;
+	uint8_t td;
+	char buf[512];
+	char nbuf[48];
+	const char *v;
+	int i;
+	bool root_el;
+
+	if (htmlc == NULL || htmlc->select_ctx == NULL) {
+		duk_push_null(ctx);
+		return 1;
+	}
+	if (duk_get_top(ctx) < 1 || !duk_is_object(ctx, 0)) {
+		duk_push_null(ctx);
+		return 1;
+	}
+	if (duk_get_top(ctx) > 1 && duk_is_string(ctx, 1) &&
+	    duk_get_length(ctx, 1) > 0) {
+		duk_push_null(ctx);
+		return 1;
+	}
+	if (!dukky_instanceof(ctx, 0, PROTO_NAME(NODE))) {
+		duk_push_null(ctx);
+		return 1;
+	}
+	duk_get_prop_string(ctx, 0, PRIVATE_MAGIC);
+	npriv = duk_get_pointer(ctx, -1);
+	duk_pop(ctx);
+	if (npriv == NULL || npriv->node == NULL) {
+		duk_push_null(ctx);
+		return 1;
+	}
+	cur = npriv->node;
+	while (cur != NULL && depth < 64) {
+		chain[depth++] = cur;
+		parent = NULL;
+		if (dom_node_get_parent_node(cur, &parent) != DOM_NO_ERR) {
+			parent = NULL;
+		}
+		if (cur != npriv->node) {
+			dom_node_unref(cur);
+		}
+		if (parent != NULL) {
+			dom_node_type ptype = DOM_ELEMENT_NODE;
+			if (dom_node_get_node_type(parent, &ptype) != DOM_NO_ERR ||
+			    ptype != DOM_ELEMENT_NODE) {
+				dom_node_unref(parent);
+				parent = NULL;
+			}
+		}
+		cur = parent;
+	}
+	if (cur != NULL && cur != npriv->node) {
+		dom_node_unref(cur);
+	}
+	if (depth < 1) {
+		duk_push_null(ctx);
+		return 1;
+	}
+	for (i = depth - 1; i >= 0; i--) {
+		inline_style = dukky_window_inline_style(htmlc, chain[i]);
+		sctx.ctx = htmlc->select_ctx;
+		sctx.quirks = (htmlc->quirks == DOM_DOCUMENT_QUIRKS_MODE_FULL);
+		sctx.base_url = htmlc->base_url;
+		sctx.universal = htmlc->universal;
+		sctx.root_style = root_style;
+		sctx.parent_style = parent_style;
+		res = nscss_get_style(&sctx, chain[i], &htmlc->media,
+				&htmlc->unit_len_ctx, inline_style);
+		if (inline_style != NULL) {
+			css_stylesheet_destroy(inline_style);
+		}
+		if (res == NULL) {
+			if (prev != NULL && prev != rootres) {
+				css_select_results_destroy(prev);
+			}
+			if (rootres != NULL) {
+				css_select_results_destroy(rootres);
+			}
+			duk_push_null(ctx);
+			return 1;
+		}
+		if (rootres == NULL) {
+			rootres = res;
+			root_style = res->styles[CSS_PSEUDO_ELEMENT_NONE];
+		} else if (prev != NULL && prev != rootres) {
+			css_select_results_destroy(prev);
+		}
+		prev = res;
+		parent_style = res->styles[CSS_PSEUDO_ELEMENT_NONE];
+	}
+	if (prev == NULL || prev->styles[CSS_PSEUDO_ELEMENT_NONE] == NULL) {
+		if (rootres != NULL) {
+			css_select_results_destroy(rootres);
+		}
+		duk_push_null(ctx);
+		return 1;
+	}
+	style = prev->styles[CSS_PSEUDO_ELEMENT_NONE];
+	root_el = (depth == 1);
+
+	duk_push_object(ctx);
+
+	if (css_computed_color(style, &col) == CSS_COLOR_COLOR) {
+		dukky_window_push_color(ctx, "color", col);
+	} else {
+		dukky_window_style_put(ctx, "color", "#000000");
+	}
+
+	switch (css_computed_background_color(style, &col)) {
+	case CSS_BACKGROUND_COLOR_COLOR:
+		dukky_window_push_color(ctx, "background-color", col);
+		break;
+	case CSS_BACKGROUND_COLOR_CURRENT_COLOR:
+		dukky_window_style_put(ctx, "background-color", "currentcolor");
+		break;
+	default:
+		dukky_window_style_put(ctx, "background-color", "rgba(0, 0, 0, 0)");
+		break;
+	}
+
+	burl = NULL;
+	if (css_computed_background_image(style, &burl) == CSS_BACKGROUND_IMAGE_IMAGE &&
+	    burl != NULL) {
+		duk_push_string(ctx, "url(\"");
+		duk_push_lstring(ctx, (const char *)lwc_string_data(burl),
+				lwc_string_length(burl));
+		duk_push_string(ctx, "\")");
+		duk_concat(ctx, 3);
+		duk_put_prop_string(ctx, -2, "background-image");
+	} else {
+		dukky_window_style_put(ctx, "background-image", "none");
+	}
+
+	fams = NULL;
+	if (css_computed_font_family(style, &fams) != CSS_FONT_FAMILY_INHERIT &&
+	    fams != NULL && fams[0] != NULL) {
+		size_t used = 0;
+		buf[0] = '\0';
+		for (fam = fams; *fam != NULL; fam++) {
+			size_t l = lwc_string_length(*fam);
+			if (used + l + 3 >= sizeof buf) {
+				break;
+			}
+			if (used > 0) {
+				buf[used++] = ',';
+				buf[used++] = ' ';
+			}
+			memcpy(buf + used, lwc_string_data(*fam), l);
+			used += l;
+			buf[used] = '\0';
+		}
+		dukky_window_style_put(ctx, "font-family", buf);
+	} else {
+		switch (css_computed_font_family(style, &fams)) {
+		case CSS_FONT_FAMILY_SANS_SERIF: v = "sans-serif"; break;
+		case CSS_FONT_FAMILY_CURSIVE: v = "cursive"; break;
+		case CSS_FONT_FAMILY_FANTASY: v = "fantasy"; break;
+		case CSS_FONT_FAMILY_MONOSPACE: v = "monospace"; break;
+		default: v = "serif"; break;
+		}
+		dukky_window_style_put(ctx, "font-family", v);
+	}
+
+	if (css_computed_font_size(style, &len, &unit) == CSS_FONT_SIZE_DIMENSION) {
+		dukky_window_push_dim(ctx, "font-size", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "font-size", "16px");
+	}
+
+	switch (css_computed_font_style(style)) {
+	case CSS_FONT_STYLE_ITALIC: v = "italic"; break;
+	case CSS_FONT_STYLE_OBLIQUE: v = "oblique"; break;
+	default: v = "normal"; break;
+	}
+	dukky_window_style_put(ctx, "font-style", v);
+
+	switch (css_computed_font_weight(style)) {
+	case CSS_FONT_WEIGHT_BOLD: v = "bold"; break;
+	case CSS_FONT_WEIGHT_BOLDER: v = "bolder"; break;
+	case CSS_FONT_WEIGHT_LIGHTER: v = "lighter"; break;
+	case CSS_FONT_WEIGHT_100: v = "100"; break;
+	case CSS_FONT_WEIGHT_200: v = "200"; break;
+	case CSS_FONT_WEIGHT_300: v = "300"; break;
+	case CSS_FONT_WEIGHT_400: v = "400"; break;
+	case CSS_FONT_WEIGHT_500: v = "500"; break;
+	case CSS_FONT_WEIGHT_600: v = "600"; break;
+	case CSS_FONT_WEIGHT_700: v = "700"; break;
+	case CSS_FONT_WEIGHT_800: v = "800"; break;
+	case CSS_FONT_WEIGHT_900: v = "900"; break;
+	default: v = "normal"; break;
+	}
+	dukky_window_style_put(ctx, "font-weight", v);
+
+	switch (css_computed_line_height(style, &len, &unit)) {
+	case CSS_LINE_HEIGHT_NUMBER:
+		dukky_window_fmt_num(nbuf, sizeof nbuf, ((double)len) / 256.0);
+		dukky_window_style_put(ctx, "line-height", nbuf);
+		break;
+	case CSS_LINE_HEIGHT_DIMENSION:
+		dukky_window_push_dim(ctx, "line-height", len, unit);
+		break;
+	default:
+		dukky_window_style_put(ctx, "line-height", "normal");
+		break;
+	}
+
+	switch (css_computed_letter_spacing(style, &len, &unit)) {
+	case CSS_LETTER_SPACING_SET:
+		dukky_window_push_dim(ctx, "letter-spacing", len, unit);
+		break;
+	default:
+		dukky_window_style_put(ctx, "letter-spacing", "normal");
+		break;
+	}
+
+	switch (css_computed_text_align(style)) {
+	case CSS_TEXT_ALIGN_LEFT:
+	case CSS_TEXT_ALIGN_LIBCSS_LEFT:
+		v = "left";
+		break;
+	case CSS_TEXT_ALIGN_RIGHT:
+	case CSS_TEXT_ALIGN_LIBCSS_RIGHT:
+		v = "right";
+		break;
+	case CSS_TEXT_ALIGN_CENTER:
+	case CSS_TEXT_ALIGN_LIBCSS_CENTER:
+		v = "center";
+		break;
+	case CSS_TEXT_ALIGN_JUSTIFY:
+		v = "justify";
+		break;
+	default:
+		v = "start";
+		break;
+	}
+	dukky_window_style_put(ctx, "text-align", v);
+
+	td = css_computed_text_decoration(style);
+	buf[0] = '\0';
+	if (td & CSS_TEXT_DECORATION_UNDERLINE) {
+		strncat(buf, "underline", sizeof buf - strlen(buf) - 1);
+	}
+	if (td & CSS_TEXT_DECORATION_OVERLINE) {
+		if (buf[0] != '\0') {
+			strncat(buf, " ", sizeof buf - strlen(buf) - 1);
+		}
+		strncat(buf, "overline", sizeof buf - strlen(buf) - 1);
+	}
+	if (td & CSS_TEXT_DECORATION_LINE_THROUGH) {
+		if (buf[0] != '\0') {
+			strncat(buf, " ", sizeof buf - strlen(buf) - 1);
+		}
+		strncat(buf, "line-through", sizeof buf - strlen(buf) - 1);
+	}
+	if (td & CSS_TEXT_DECORATION_BLINK) {
+		if (buf[0] != '\0') {
+			strncat(buf, " ", sizeof buf - strlen(buf) - 1);
+		}
+		strncat(buf, "blink", sizeof buf - strlen(buf) - 1);
+	}
+	dukky_window_style_put(ctx, "text-decoration",
+			buf[0] == '\0' ? "none" : buf);
+
+	switch (css_computed_text_transform(style)) {
+	case CSS_TEXT_TRANSFORM_CAPITALIZE: v = "capitalize"; break;
+	case CSS_TEXT_TRANSFORM_UPPERCASE: v = "uppercase"; break;
+	case CSS_TEXT_TRANSFORM_LOWERCASE: v = "lowercase"; break;
+	default: v = "none"; break;
+	}
+	dukky_window_style_put(ctx, "text-transform", v);
+
+	if (css_computed_text_indent(style, &len, &unit) == CSS_TEXT_INDENT_SET) {
+		dukky_window_push_dim(ctx, "text-indent", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "text-indent", "0px");
+	}
+
+	dukky_window_style_put(ctx, "display",
+			dukky_window_display_str(css_computed_display(style, root_el)));
+
+	switch (css_computed_position(style)) {
+	case CSS_POSITION_RELATIVE: v = "relative"; break;
+	case CSS_POSITION_ABSOLUTE: v = "absolute"; break;
+	case CSS_POSITION_FIXED: v = "fixed"; break;
+	case CSS_POSITION_STICKY: v = "sticky"; break;
+	default: v = "static"; break;
+	}
+	dukky_window_style_put(ctx, "position", v);
+
+	switch (css_computed_float(style)) {
+	case CSS_FLOAT_LEFT: v = "left"; break;
+	case CSS_FLOAT_RIGHT: v = "right"; break;
+	default: v = "none"; break;
+	}
+	dukky_window_style_put(ctx, "float", v);
+
+	switch (css_computed_clear(style)) {
+	case CSS_CLEAR_LEFT: v = "left"; break;
+	case CSS_CLEAR_RIGHT: v = "right"; break;
+	case CSS_CLEAR_BOTH: v = "both"; break;
+	default: v = "none"; break;
+	}
+	dukky_window_style_put(ctx, "clear", v);
+
+	switch (css_computed_visibility(style)) {
+	case CSS_VISIBILITY_HIDDEN: v = "hidden"; break;
+	case CSS_VISIBILITY_COLLAPSE: v = "collapse"; break;
+	default: v = "visible"; break;
+	}
+	dukky_window_style_put(ctx, "visibility", v);
+
+	switch (css_computed_direction(style)) {
+	case CSS_DIRECTION_RTL: v = "rtl"; break;
+	default: v = "ltr"; break;
+	}
+	dukky_window_style_put(ctx, "direction", v);
+
+	switch (css_computed_white_space(style)) {
+	case CSS_WHITE_SPACE_PRE: v = "pre"; break;
+	case CSS_WHITE_SPACE_NOWRAP: v = "nowrap"; break;
+	case CSS_WHITE_SPACE_PRE_WRAP: v = "pre-wrap"; break;
+	case CSS_WHITE_SPACE_PRE_LINE: v = "pre-line"; break;
+	default: v = "normal"; break;
+	}
+	dukky_window_style_put(ctx, "white-space", v);
+
+	switch (css_computed_overflow_x(style)) {
+	case CSS_OVERFLOW_HIDDEN: v = "hidden"; break;
+	case CSS_OVERFLOW_SCROLL: v = "scroll"; break;
+	case CSS_OVERFLOW_AUTO: v = "auto"; break;
+	default: v = "visible"; break;
+	}
+	dukky_window_style_put(ctx, "overflow-x", v);
+
+	switch (css_computed_overflow_y(style)) {
+	case CSS_OVERFLOW_HIDDEN: v = "hidden"; break;
+	case CSS_OVERFLOW_SCROLL: v = "scroll"; break;
+	case CSS_OVERFLOW_AUTO: v = "auto"; break;
+	default: v = "visible"; break;
+	}
+	dukky_window_style_put(ctx, "overflow-y", v);
+
+	dukky_window_style_put(ctx, "box-sizing",
+			css_computed_box_sizing(style) == CSS_BOX_SIZING_BORDER_BOX ?
+			"border-box" : "content-box");
+
+	if (css_computed_z_index(style, &zi) == CSS_Z_INDEX_SET) {
+		snprintf(nbuf, sizeof nbuf, "%d", (int)zi);
+		dukky_window_style_put(ctx, "z-index", nbuf);
+	} else {
+		dukky_window_style_put(ctx, "z-index", "auto");
+	}
+
+	if (css_computed_opacity(style, &op) == CSS_OPACITY_SET) {
+		dukky_window_fmt_num(nbuf, sizeof nbuf, ((double)op) / 256.0);
+		dukky_window_style_put(ctx, "opacity", nbuf);
+	} else {
+		dukky_window_style_put(ctx, "opacity", "1");
+	}
+
+	if (css_computed_top(style, &len, &unit) == CSS_TOP_SET) {
+		dukky_window_push_dim(ctx, "top", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "top", "auto");
+	}
+	if (css_computed_right(style, &len, &unit) == CSS_TOP_SET) {
+		dukky_window_push_dim(ctx, "right", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "right", "auto");
+	}
+	if (css_computed_bottom(style, &len, &unit) == CSS_TOP_SET) {
+		dukky_window_push_dim(ctx, "bottom", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "bottom", "auto");
+	}
+	if (css_computed_left(style, &len, &unit) == CSS_TOP_SET) {
+		dukky_window_push_dim(ctx, "left", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "left", "auto");
+	}
+
+	if (css_computed_width(style, &len, &unit) == CSS_WIDTH_SET) {
+		dukky_window_push_dim(ctx, "width", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "width", "auto");
+	}
+	if (css_computed_height(style, &len, &unit) == CSS_HEIGHT_SET) {
+		dukky_window_push_dim(ctx, "height", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "height", "auto");
+	}
+	if (css_computed_min_width(style, &len, &unit) == CSS_PADDING_SET) {
+		dukky_window_push_dim(ctx, "min-width", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "min-width", "0px");
+	}
+	if (css_computed_min_height(style, &len, &unit) == CSS_PADDING_SET) {
+		dukky_window_push_dim(ctx, "min-height", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "min-height", "0px");
+	}
+	if (css_computed_max_width(style, &len, &unit) == CSS_PADDING_SET) {
+		dukky_window_push_dim(ctx, "max-width", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "max-width", "none");
+	}
+	if (css_computed_max_height(style, &len, &unit) == CSS_PADDING_SET) {
+		dukky_window_push_dim(ctx, "max-height", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "max-height", "none");
+	}
+
+	switch (css_computed_margin_top(style, &len, &unit)) {
+	case CSS_MARGIN_SET: dukky_window_push_dim(ctx, "margin-top", len, unit); break;
+	case CSS_MARGIN_AUTO: dukky_window_style_put(ctx, "margin-top", "auto"); break;
+	default: dukky_window_style_put(ctx, "margin-top", "0px"); break;
+	}
+	switch (css_computed_margin_right(style, &len, &unit)) {
+	case CSS_MARGIN_SET: dukky_window_push_dim(ctx, "margin-right", len, unit); break;
+	case CSS_MARGIN_AUTO: dukky_window_style_put(ctx, "margin-right", "auto"); break;
+	default: dukky_window_style_put(ctx, "margin-right", "0px"); break;
+	}
+	switch (css_computed_margin_bottom(style, &len, &unit)) {
+	case CSS_MARGIN_SET: dukky_window_push_dim(ctx, "margin-bottom", len, unit); break;
+	case CSS_MARGIN_AUTO: dukky_window_style_put(ctx, "margin-bottom", "auto"); break;
+	default: dukky_window_style_put(ctx, "margin-bottom", "0px"); break;
+	}
+	switch (css_computed_margin_left(style, &len, &unit)) {
+	case CSS_MARGIN_SET: dukky_window_push_dim(ctx, "margin-left", len, unit); break;
+	case CSS_MARGIN_AUTO: dukky_window_style_put(ctx, "margin-left", "auto"); break;
+	default: dukky_window_style_put(ctx, "margin-left", "0px"); break;
+	}
+
+	if (css_computed_padding_top(style, &len, &unit) == CSS_PADDING_SET) {
+		dukky_window_push_dim(ctx, "padding-top", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "padding-top", "0px");
+	}
+	if (css_computed_padding_right(style, &len, &unit) == CSS_PADDING_SET) {
+		dukky_window_push_dim(ctx, "padding-right", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "padding-right", "0px");
+	}
+	if (css_computed_padding_bottom(style, &len, &unit) == CSS_PADDING_SET) {
+		dukky_window_push_dim(ctx, "padding-bottom", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "padding-bottom", "0px");
+	}
+	if (css_computed_padding_left(style, &len, &unit) == CSS_PADDING_SET) {
+		dukky_window_push_dim(ctx, "padding-left", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "padding-left", "0px");
+	}
+
+	dukky_window_border_width(ctx, "border-top-width",
+			css_computed_border_top_width(style, &len, &unit), len, unit);
+	dukky_window_border_width(ctx, "border-right-width",
+			css_computed_border_right_width(style, &len, &unit), len, unit);
+	dukky_window_border_width(ctx, "border-bottom-width",
+			css_computed_border_bottom_width(style, &len, &unit), len, unit);
+	dukky_window_border_width(ctx, "border-left-width",
+			css_computed_border_left_width(style, &len, &unit), len, unit);
+
+	dukky_window_style_put(ctx, "border-top-style",
+			dukky_window_border_style_str(css_computed_border_top_style(style)));
+	dukky_window_style_put(ctx, "border-right-style",
+			dukky_window_border_style_str(css_computed_border_right_style(style)));
+	dukky_window_style_put(ctx, "border-bottom-style",
+			dukky_window_border_style_str(css_computed_border_bottom_style(style)));
+	dukky_window_style_put(ctx, "border-left-style",
+			dukky_window_border_style_str(css_computed_border_left_style(style)));
+
+	if (css_computed_border_top_color(style, &col) == CSS_BORDER_COLOR_COLOR) {
+		dukky_window_push_color(ctx, "border-top-color", col);
+	} else {
+		dukky_window_style_put(ctx, "border-top-color", "currentcolor");
+	}
+	if (css_computed_border_right_color(style, &col) == CSS_BORDER_COLOR_COLOR) {
+		dukky_window_push_color(ctx, "border-right-color", col);
+	} else {
+		dukky_window_style_put(ctx, "border-right-color", "currentcolor");
+	}
+	if (css_computed_border_bottom_color(style, &col) == CSS_BORDER_COLOR_COLOR) {
+		dukky_window_push_color(ctx, "border-bottom-color", col);
+	} else {
+		dukky_window_style_put(ctx, "border-bottom-color", "currentcolor");
+	}
+	if (css_computed_border_left_color(style, &col) == CSS_BORDER_COLOR_COLOR) {
+		dukky_window_push_color(ctx, "border-left-color", col);
+	} else {
+		dukky_window_style_put(ctx, "border-left-color", "currentcolor");
+	}
+
+	duk_push_c_function(ctx, dukky_window_style_get_prop, 1);
+	duk_put_prop_string(ctx, -2, "getPropertyValue");
+	duk_push_c_function(ctx, dukky_window_style_get_prio, 0);
+	duk_put_prop_string(ctx, -2, "getPropertyPriority");
+	dukky_window_style_put(ctx, "cssText", "");
+
+	css_select_results_destroy(prev);
+	if (prev != rootres && rootres != NULL) {
+		css_select_results_destroy(rootres);
+	}
+	return 1;
 %}
 
 getter Window::onabort();
