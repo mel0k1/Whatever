@@ -1573,11 +1573,175 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
                 return out.join('');
             };
         }
-        if (typeof window.matchMedia !== 'function') {
-            window.matchMedia = function (q) {
+        if (typeof __nsMetrics === 'function') {
+            defineValue(window, 'matchMedia', function (q) {
+                var spec = String(q === undefined || q === null ? '' : q);
+                var metrics = __nsMetrics();
+                var rootPx = function () {
+                    try {
+                        if (typeof window.getComputedStyle === 'function') {
+                            var fs = window.getComputedStyle(document.documentElement, null).fontSize;
+                            var fn = parseFloat(fs);
+                            if (fn === fn && fn > 0) {
+                                return fn;
+                            }
+                        }
+                    } catch (e) {
+                    }
+                    return 16;
+                };
+                var toPx = function (v) {
+                    var m = String(v).match(/^\s*([0-9.]+)\s*(px|em|rem|ex|pt|pc|in|cm|mm)?\s*$/i);
+                    if (m === null) {
+                        return null;
+                    }
+                    var n = parseFloat(m[1]);
+                    if (n !== n) {
+                        return null;
+                    }
+                    var u = (m[2] || 'px').toLowerCase();
+                    var root = u === 'em' || u === 'rem' || u === 'ex' ? rootPx() : 0;
+                    if (u === 'em' || u === 'rem') {
+                        return n * root;
+                    }
+                    if (u === 'ex') {
+                        return n * root / 2;
+                    }
+                    if (u === 'pt') {
+                        return n * 96 / 72;
+                    }
+                    if (u === 'pc') {
+                        return n * 16;
+                    }
+                    if (u === 'in') {
+                        return n * 96;
+                    }
+                    if (u === 'cm') {
+                        return n * 96 / 2.54;
+                    }
+                    if (u === 'mm') {
+                        return n * 96 / 25.4;
+                    }
+                    return n;
+                };
+                var evalFeature = function (name, val) {
+                    var w = metrics.innerWidth;
+                    var h = metrics.innerHeight;
+                    if (name === 'orientation') {
+                        if (val === 'portrait') {
+                            return h >= w;
+                        }
+                        if (val === 'landscape') {
+                            return w > h;
+                        }
+                        return false;
+                    }
+                    if (name === 'prefers-color-scheme') {
+                        return val === 'light';
+                    }
+                    if (name === 'prefers-reduced-motion' || name === 'prefers-reduced-transparency') {
+                        return val === 'no-preference';
+                    }
+                    if (name === 'monochrome') {
+                        return toPx(val) === 0;
+                    }
+                    if (name === 'color') {
+                        return val === '';
+                    }
+                    if (name === 'resolution') {
+                        var rm = val.match(/^\s*([0-9.]+)\s*(dpi|dpcm|dppx)?\s*$/i);
+                        if (rm === null) {
+                            return false;
+                        }
+                        var rn = parseFloat(rm[1]);
+                        var ru = (rm[2] || 'dpi').toLowerCase();
+                        var target = ru === 'dpcm' ? rn * 2.54 : ru === 'dppx' ? rn * 96 : rn;
+                        return 96 * (metrics.devicePixelRatio || 1) >= target;
+                    }
+                    if (name === 'aspect-ratio' || name === 'min-aspect-ratio' || name === 'max-aspect-ratio') {
+                        var am = val.match(/^\s*([0-9.]+)\s*\/\s*([0-9.]+)?\s*$/);
+                        if (am === null) {
+                            return false;
+                        }
+                        var den = am[2] === undefined || am[2] === '' ? 1 : parseFloat(am[2]);
+                        var av = parseFloat(am[1]) / den;
+                        var cur = w / h;
+                        if (name === 'min-aspect-ratio') {
+                            return cur >= av;
+                        }
+                        if (name === 'max-aspect-ratio') {
+                            return cur <= av;
+                        }
+                        return Math.abs(cur - av) < 0.01;
+                    }
+                    var base = name.indexOf('min-') === 0 ? 'min' : name.indexOf('max-') === 0 ? 'max' : 'eq';
+                    var dim = name.replace(/^(min|max)-/, '');
+                    if (dim === 'device-width' || dim === 'device-height') {
+                        dim = dim === 'device-width' ? 'width' : 'height';
+                    }
+                    if (dim !== 'width' && dim !== 'height') {
+                        return false;
+                    }
+                    var num = toPx(val);
+                    if (num === null) {
+                        return false;
+                    }
+                    var cur2 = dim === 'width' ? w : h;
+                    if (base === 'min') {
+                        return cur2 >= num;
+                    }
+                    if (base === 'max') {
+                        return cur2 <= num;
+                    }
+                    return cur2 === num;
+                };
+                var evalQuery = function (qstr) {
+                    var s = qstr.replace(/^\s+/, '').replace(/\s+$/, '');
+                    var neg = false;
+                    if (/^not\s+/i.test(s)) {
+                        neg = true;
+                        s = s.replace(/^not\s+/i, '');
+                    }
+                    var parts = s.split(/\s+and\s+/i);
+                    var res = true;
+                    for (var i = 0; i < parts.length; i++) {
+                        var p = parts[i].replace(/^\s+/, '').replace(/\s+$/, '');
+                        if (p === '') {
+                            continue;
+                        }
+                        if (/^(all|screen|print)$/i.test(p)) {
+                            continue;
+                        }
+                        if (/^speech$/i.test(p)) {
+                            res = false;
+                            break;
+                        }
+                        var mm = p.match(/^\(([^:)]+)(?:\s*:\s*([^)]*))?\)\s*$/);
+                        if (mm === null) {
+                            res = false;
+                            break;
+                        }
+                        var name = mm[1].replace(/^\s+/, '').replace(/\s+$/, '').toLowerCase();
+                        var val = mm[2] === undefined ? '' : mm[2].replace(/^\s+/, '').replace(/\s+$/, '');
+                        if (!evalFeature(name, val)) {
+                            res = false;
+                            break;
+                        }
+                    }
+                    return neg ? !res : res;
+                };
+                var list = spec.split(',');
+                var matches = false;
+                for (var li = 0; li < list.length; li++) {
+                    if (evalQuery(list[li])) {
+                        matches = true;
+                        break;
+                    }
+                }
                 return {
-                    media: String(q === undefined || q === null ? '' : q),
-                    matches: false,
+                    media: spec,
+                    matches: matches,
+                    onchange: null,
                     addListener: function () {
                     },
                     removeListener: function () {
@@ -1590,7 +1754,7 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
                         return false;
                     }
                 };
-            };
+            });
         }
         if (typeof window.requestAnimationFrame !== 'function') {
             window.requestAnimationFrame = function (cb) {
