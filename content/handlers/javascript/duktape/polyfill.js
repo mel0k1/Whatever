@@ -992,6 +992,31 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
         });
     }
 
+    if (typeof __nsRect === 'function') {
+        defineValue(elementProto, 'getBoundingClientRect', function () {
+            return __nsRect(this);
+        });
+        defineValue(elementProto, 'getClientRects', function () {
+            var out = [__nsRect(this)];
+            out.item = function (i) {
+                return (i >= 0 && i < out.length) ? out[i] : null;
+            };
+            return out;
+        });
+    }
+    if (elementProto.scrollTop === undefined) {
+        Object.defineProperty(elementProto, 'scrollTop', {
+            get: function () { return 0; },
+            set: function () {},
+            configurable: true
+        });
+        Object.defineProperty(elementProto, 'scrollLeft', {
+            get: function () { return 0; },
+            set: function () {},
+            configurable: true
+        });
+    }
+
     function camelToKebab(k) {
         return String(k).replace(/[A-Z]/g, function (c) {
             return '-' + c.toLowerCase();
@@ -1377,6 +1402,36 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
         if (typeof window.blur !== 'function') {
             window.blur = function () {
             };
+        }
+
+        if (typeof __nsMetrics === 'function') {
+            defineGetter(window, 'innerWidth', function () {
+                return __nsMetrics().innerWidth;
+            });
+            defineGetter(window, 'innerHeight', function () {
+                return __nsMetrics().innerHeight;
+            });
+            defineGetter(window, 'outerWidth', function () {
+                return __nsMetrics().outerWidth;
+            });
+            defineGetter(window, 'outerHeight', function () {
+                return __nsMetrics().outerHeight;
+            });
+            defineGetter(window, 'scrollX', function () {
+                return __nsMetrics().scrollX;
+            });
+            defineGetter(window, 'scrollY', function () {
+                return __nsMetrics().scrollY;
+            });
+            defineGetter(window, 'pageXOffset', function () {
+                return __nsMetrics().scrollX;
+            });
+            defineGetter(window, 'pageYOffset', function () {
+                return __nsMetrics().scrollY;
+            });
+            defineGetter(window, 'devicePixelRatio', function () {
+                return __nsMetrics().devicePixelRatio;
+            });
         }
     }
 })();

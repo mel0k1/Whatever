@@ -48,6 +48,7 @@ struct dom_html_collection;
 struct dom_html_br_element;
 struct html_content;
 void html_schedule_reformat(struct html_content *htmlc);
+void dukky_window_register_api(duk_context *ctx);
 
 %};
 

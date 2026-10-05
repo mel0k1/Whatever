@@ -770,6 +770,8 @@ nserror js_newthread(jsheap *heap, void *win_priv, void *doc_priv, jsthread **th
 	duk_put_prop_string(CTX, -2, "prototype");
 	duk_put_global_string(CTX, "DOMParser");
 
+	dukky_window_register_api(CTX);
+
 	/* Now we need to prepare our node mapping table */
 	duk_push_object(CTX);
 	duk_push_pointer(CTX, NULL);

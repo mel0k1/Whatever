@@ -28,6 +28,9 @@ class Window {
 #include <stdio.h>
 #include "css/select.h"
 #include "css/utils.h"
+#include "desktop/browser_private.h"
+#include "content/handlers/html/box_inspect.h"
+#include "netsurf/types.h"
 
 #define WINDOW_CALLBACKS MAGIC(WindowCallbacks)
 #define HANDLER_MAGIC MAGIC(HANDLER_MAP)
@@ -498,6 +501,154 @@ static void dukky_window_border_width(duk_context *ctx, const char *name,
 		dukky_window_style_put(ctx, name, "3px");
 		break;
 	}
+}
+
+
+static window_private_t *dukky_window_priv(duk_context *ctx)
+{
+	window_private_t *priv;
+	duk_push_global_object(ctx);
+	duk_get_prop_string(ctx, -1, PRIVATE_MAGIC);
+	priv = (window_private_t *)duk_get_pointer(ctx, -1);
+	duk_pop_2(ctx);
+	return priv;
+}
+
+static dom_node *dukky_ns_node_arg(duk_context *ctx, duk_idx_t idx)
+{
+	node_private_t *np;
+	if (!duk_is_object(ctx, idx)) {
+		return NULL;
+	}
+	duk_get_prop_string(ctx, idx, PRIVATE_MAGIC);
+	np = (node_private_t *)duk_get_pointer(ctx, -1);
+	duk_pop(ctx);
+	if (np == NULL) {
+		return NULL;
+	}
+	return np->node;
+}
+
+static struct box *dukky_box_for_node(struct box *b, dom_node *n)
+{
+	struct box *r;
+	if (b == NULL) {
+		return NULL;
+	}
+	if (b->node != NULL) {
+		bool same = false;
+		if (dom_node_is_same(b->node, n, &same) == DOM_NO_ERR && same) {
+			return b;
+		}
+	}
+	r = dukky_box_for_node(b->children, n);
+	if (r != NULL) {
+		return r;
+	}
+	return dukky_box_for_node(b->float_children, n);
+}
+
+static duk_ret_t dukky_ns_metrics(duk_context *ctx)
+{
+	window_private_t *priv = dukky_window_priv(ctx);
+	int w = 0;
+	int h = 0;
+	int sx = 0;
+	int sy = 0;
+	if (priv != NULL && priv->win != NULL) {
+		browser_window_get_dimensions(priv->win, &w, &h);
+		if (priv->win->window != NULL) {
+			guit->window->get_scroll(priv->win->window, &sx, &sy);
+		}
+	}
+	duk_push_object(ctx);
+	duk_push_int(ctx, w);
+	duk_put_prop_string(ctx, -2, "innerWidth");
+	duk_push_int(ctx, h);
+	duk_put_prop_string(ctx, -2, "innerHeight");
+	duk_push_int(ctx, w);
+	duk_put_prop_string(ctx, -2, "outerWidth");
+	duk_push_int(ctx, h);
+	duk_put_prop_string(ctx, -2, "outerHeight");
+	duk_push_int(ctx, sx);
+	duk_put_prop_string(ctx, -2, "scrollX");
+	duk_push_int(ctx, sy);
+	duk_put_prop_string(ctx, -2, "scrollY");
+	duk_push_int(ctx, 1);
+	duk_put_prop_string(ctx, -2, "devicePixelRatio");
+	return 1;
+}
+
+static duk_ret_t dukky_ns_rect(duk_context *ctx)
+{
+	window_private_t *priv = dukky_window_priv(ctx);
+	dom_node *n = dukky_ns_node_arg(ctx, 0);
+	struct html_content *htmlc = NULL;
+	struct box *box = NULL;
+	struct rect bounds;
+	dom_document *doc = NULL;
+	dom_exception err;
+	int sx = 0;
+	int sy = 0;
+	int x = 0;
+	int y = 0;
+	int w = 0;
+	int h = 0;
+
+	bounds.x0 = 0;
+	bounds.y0 = 0;
+	bounds.x1 = 0;
+	bounds.y1 = 0;
+	if (n != NULL) {
+		err = dom_node_get_owner_document(n, &doc);
+		if (err == DOM_NO_ERR && doc != NULL) {
+			dom_node_get_user_data((dom_node *)doc,
+					corestring_dom___ns_key_html_content_data,
+					&htmlc);
+			if (htmlc != NULL && htmlc->layout != NULL) {
+				box = dukky_box_for_node(htmlc->layout, n);
+			}
+		}
+		if (doc != NULL) {
+			dom_node_unref((dom_node *)doc);
+		}
+	}
+	if (box != NULL) {
+		box_bounds(box, &bounds);
+		x = bounds.x0;
+		y = bounds.y0;
+		w = bounds.x1 - bounds.x0;
+		h = bounds.y1 - bounds.y0;
+	}
+	if (priv != NULL && priv->win != NULL && priv->win->window != NULL) {
+		guit->window->get_scroll(priv->win->window, &sx, &sy);
+	}
+	duk_push_object(ctx);
+	duk_push_int(ctx, x - sx);
+	duk_put_prop_string(ctx, -2, "x");
+	duk_push_int(ctx, y - sy);
+	duk_put_prop_string(ctx, -2, "y");
+	duk_push_int(ctx, x - sx);
+	duk_put_prop_string(ctx, -2, "left");
+	duk_push_int(ctx, y - sy);
+	duk_put_prop_string(ctx, -2, "top");
+	duk_push_int(ctx, x - sx + w);
+	duk_put_prop_string(ctx, -2, "right");
+	duk_push_int(ctx, y - sy + h);
+	duk_put_prop_string(ctx, -2, "bottom");
+	duk_push_int(ctx, w);
+	duk_put_prop_string(ctx, -2, "width");
+	duk_push_int(ctx, h);
+	duk_put_prop_string(ctx, -2, "height");
+	return 1;
+}
+
+void dukky_window_register_api(duk_context *ctx)
+{
+	duk_push_c_function(ctx, dukky_ns_metrics, 0);
+	duk_put_global_string(ctx, "__nsMetrics");
+	duk_push_c_function(ctx, dukky_ns_rect, 1);
+	duk_put_global_string(ctx, "__nsRect");
 }
 
 %};
