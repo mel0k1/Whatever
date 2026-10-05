@@ -34,12 +34,16 @@ Works:
   installer graphics.
 - Monochrome internal pages: fetch errors, certificate and privacy
   prompts.
+- Engine: dynamic JavaScript with XMLHttpRequest, fetch() and
+  Promise, DOM selectors (querySelector, closest, matches), style
+  and dataset APIs, and live page reflow after DOM changes.
 - Windows cross-build in CI: a flat zip and an NSIS installer.
 - GTK3 Linux build in CI.
 
 Does not work yet:
 
-- JavaScript is minimal (duktape); heavy modern sites may break.
+- JavaScript has no ECMAScript 2015 builtins (Map, Set, arrow
+  functions); complex SPA frameworks may still break.
 - No audio or video playback.
 - Binaries are not Authenticode-signed: expect a SmartScreen
   warning. Build provenance is published as GitHub artifact
@@ -121,13 +125,18 @@ BeOS/Haiku, framebuffer, Qt и RISC OS.
   page-info, установщик.
 - Монохромные внутренние страницы: ошибки загрузки,
   сертификат, приватность.
+- Движок: динамический JavaScript с XMLHttpRequest, fetch()
+  и Promise, DOM-селекторы (querySelector, closest, matches),
+  API стилей и dataset, перерисовка страницы после
+  DOM-изменений.
 - Windows-сборка в CI: плоский zip и NSIS-установщик.
 - Linux GTK3-сборка в CI.
 
 **Пока нет:**
 
-- Полноценного JavaScript (duktape минимален, современные
-  сайты могут ломаться).
+- В JavaScript нет встроенных возможностей ECMAScript 2015
+  (Map, Set, стрелочные функции); сложные SPA-фреймворки
+  могут по-прежнему ломаться.
 - Воспроизведения аудио и видео.
 - Подписи Authenticode — только GitHub artifact attestations
   и предупреждение SmartScreen при первом запуске.
