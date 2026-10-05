@@ -936,7 +936,7 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
     }
     if (typeof __nsElementFromPoint === 'function' && docProto.elementFromPoint === undefined) {
         defineValue(docProto, 'elementFromPoint', function (x, y) {
-            return __nsElementFromPoint(toInt(x), toInt(y));
+            return __nsElementFromPoint(Number(x) || 0, Number(y) || 0);
         });
     }
     if (elementProto.querySelector === undefined) {
@@ -1004,6 +1004,8 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
             var mode = 'start';
             if (typeof arg === 'string') {
                 mode = arg;
+            } else if (typeof arg === 'boolean') {
+                mode = arg ? 'start' : 'end';
             } else if (arg !== null && arg !== undefined && typeof arg === 'object') {
                 mode = arg.block === undefined ? 'start' : arg.block;
             }
@@ -1032,6 +1034,95 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
                 return (i >= 0 && i < out.length) ? out[i] : null;
             };
             return out;
+        });
+    }
+    if (typeof __nsRect === 'function') {
+        var geoRect = function (el) {
+            var r = __nsRect(el);
+            if (r === null || r === undefined) {
+                r = {x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0};
+            }
+            return r;
+        };
+        var geoPx = function (v) {
+            var n = parseFloat(v);
+            if (n !== n || n < 0) {
+                return 0;
+            }
+            return Math.round(n);
+        };
+        var geoStyled = function (el) {
+            return typeof window.getComputedStyle === 'function' ? window.getComputedStyle(el, null) : null;
+        };
+        var geoOffsetParent = function (el) {
+            var e = el.parentElement;
+            while (e !== null && e !== undefined) {
+                var s = geoStyled(e);
+                var p = s ? s.position : 'static';
+                if (p === 'relative' || p === 'absolute' || p === 'fixed' || p === 'sticky') {
+                    return e;
+                }
+                if (e.nodeName === 'BODY') {
+                    return e;
+                }
+                e = e.parentElement;
+            }
+            return null;
+        };
+        defineGetter(elementProto, 'offsetWidth', function () {
+            return geoRect(this).width;
+        });
+        defineGetter(elementProto, 'offsetHeight', function () {
+            return geoRect(this).height;
+        });
+        defineGetter(elementProto, 'clientTop', function () {
+            var s = geoStyled(this);
+            return s ? geoPx(s['border-top-width']) : 0;
+        });
+        defineGetter(elementProto, 'clientLeft', function () {
+            var s = geoStyled(this);
+            return s ? geoPx(s['border-left-width']) : 0;
+        });
+        defineGetter(elementProto, 'clientWidth', function () {
+            var r = geoRect(this);
+            var s = geoStyled(this);
+            var bl = s ? geoPx(s['border-left-width']) : 0;
+            var br = s ? geoPx(s['border-right-width']) : 0;
+            var w = r.width - bl - br;
+            return w > 0 ? w : 0;
+        });
+        defineGetter(elementProto, 'clientHeight', function () {
+            var r = geoRect(this);
+            var s = geoStyled(this);
+            var bt = s ? geoPx(s['border-top-width']) : 0;
+            var bb = s ? geoPx(s['border-bottom-width']) : 0;
+            var h = r.height - bt - bb;
+            return h > 0 ? h : 0;
+        });
+        defineGetter(elementProto, 'offsetParent', function () {
+            return geoOffsetParent(this);
+        });
+        defineGetter(elementProto, 'offsetLeft', function () {
+            var r = geoRect(this);
+            var p = geoOffsetParent(this);
+            if (p === null || p === undefined) {
+                return r.left + window.scrollX;
+            }
+            var pr = geoRect(p);
+            var ps = geoStyled(p);
+            var pl = ps ? geoPx(ps['border-left-width']) : 0;
+            return r.left - pr.left - pl;
+        });
+        defineGetter(elementProto, 'offsetTop', function () {
+            var r = geoRect(this);
+            var p = geoOffsetParent(this);
+            if (p === null || p === undefined) {
+                return r.top + window.scrollY;
+            }
+            var pr = geoRect(p);
+            var ps = geoStyled(p);
+            var pt = ps ? geoPx(ps['border-top-width']) : 0;
+            return r.top - pr.top - pt;
         });
     }
     if (elementProto.scrollTop === undefined) {
@@ -1487,20 +1578,24 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
             };
         }
         if (typeof __nsScrollTo === 'function') {
+            var scrI = function (v) {
+                var n = Number(v);
+                return n === n ? n : 0;
+            };
             defineValue(window, 'scrollTo', function (x, y) {
                 if (x !== null && x !== undefined && typeof x === 'object') {
-                    __nsScrollTo(x.left === undefined ? toInt(x.x) : toInt(x.left), x.top === undefined ? toInt(x.y) : toInt(x.top));
+                    __nsScrollTo(scrI(x.left === undefined ? x.x : x.left), scrI(x.top === undefined ? x.y : x.top));
                     return;
                 }
-                __nsScrollTo(toInt(x), toInt(y));
+                __nsScrollTo(scrI(x), scrI(y));
             });
             defineValue(window, 'scroll', window.scrollTo);
             defineValue(window, 'scrollBy', function (x, y) {
                 if (x !== null && x !== undefined && typeof x === 'object') {
-                    __nsScrollTo(window.scrollX + toInt(x.left === undefined ? x.x : x.left), window.scrollY + toInt(x.top === undefined ? x.y : x.top));
+                    __nsScrollTo(window.scrollX + scrI(x.left === undefined ? x.x : x.left), window.scrollY + scrI(x.top === undefined ? x.y : x.top));
                     return;
                 }
-                __nsScrollTo(window.scrollX + toInt(x), window.scrollY + toInt(y));
+                __nsScrollTo(window.scrollX + scrI(x), window.scrollY + scrI(y));
             });
         }
 
