@@ -46,7 +46,7 @@
 
 #include <dom/dom.h>
 #include <dom/bindings/hubbub/parser.h>
-#include <dom/bindings/xml/parser.h>
+#include <dom/bindings/xml/xmlparser.h>
 #include <string.h>
 
 #define EVENT_MAGIC MAGIC(EVENT_MAP)
