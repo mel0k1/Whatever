@@ -36,16 +36,23 @@ Works:
   prompts.
 - Engine: dynamic JavaScript with XMLHttpRequest, fetch() and
   Promise, DOM selectors (querySelector, closest, matches), style
-  and dataset APIs, DOMParser, btoa/atob, a real getComputedStyle
-  computed by the CSS engine, and live page reflow after DOM
-  changes.
+  and dataset APIs, DOMParser with true XML support, btoa/atob, a
+  real getComputedStyle computed by the CSS engine, live page
+  reflow after DOM changes, localStorage and sessionStorage,
+  history, window geometry (innerWidth/innerHeight, scroll
+  offsets), getBoundingClientRect and popular ES2015 builtin
+  methods (Object.assign, Array.from/find/flat, String
+  startsWith/padStart, Number.isInteger and more).
 - Windows cross-build in CI: a flat zip and an NSIS installer.
 - GTK3 Linux build in CI.
 
 Does not work yet:
 
-- JavaScript has no ECMAScript 2015 builtins (Map, Set, arrow
-  functions); complex SPA frameworks may still break.
+- The JavaScript core is ES5.1: no arrow functions, classes,
+  template literals, Map/Set or async/await, so complex SPA
+  frameworks may still break.
+- Web storage persists in the user profile and is per origin;
+  sessionStorage lives only for the page session.
 - No audio or video playback.
 - Binaries are not Authenticode-signed: expect a SmartScreen
   warning. Build provenance is published as GitHub artifact
@@ -129,17 +136,23 @@ BeOS/Haiku, framebuffer, Qt и RISC OS.
   сертификат, приватность.
 - Движок: динамический JavaScript с XMLHttpRequest, fetch()
   и Promise, DOM-селекторы (querySelector, closest, matches),
-  API стилей и dataset, DOMParser, btoa/atob, настоящий
-  getComputedStyle на движке CSS, перерисовка страницы
-  после DOM-изменений.
+  API стилей и dataset, DOMParser с настоящей поддержкой XML,
+  btoa/atob, настоящий getComputedStyle на движке CSS,
+  перерисовка страницы после DOM-изменений, localStorage
+  и sessionStorage, history, геометрия окна (innerWidth/
+  innerHeight, прокрутка), getBoundingClientRect и популярные
+  встроенные методы ES2015 (Object.assign, Array.from/find/flat,
+  String startsWith/padStart, Number.isInteger и другие).
 - Windows-сборка в CI: плоский zip и NSIS-установщик.
 - Linux GTK3-сборка в CI.
 
 **Пока нет:**
 
-- В JavaScript нет встроенных возможностей ECMAScript 2015
-  (Map, Set, стрелочные функции); сложные SPA-фреймворки
-  могут по-прежнему ломаться.
+- Ядро JavaScript — ES5.1: нет стрелочных функций, классов,
+  шаблонных строк, Map/Set и async/await, поэтому сложные
+  SPA-фреймворки могут по-прежнему ломаться.
+- Web storage сохраняется в профиле пользователя с разделением
+  по origin; sessionStorage живёт только в рамках сессии.
 - Воспроизведения аудио и видео.
 - Подписи Authenticode — только GitHub artifact attestations
   и предупреждение SmartScreen при первом запуске.
