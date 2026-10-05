@@ -34,6 +34,8 @@ $(OBJROOT)/duktape/binding.h: content/handlers/javascript/duktape/netsurf.bnd $(
 	$(Q)nsgenbind $(GBFLAGS) -I content/handlers/javascript/WebIDL $< $(OBJROOT)/duktape
 
 $(OBJROOT)/duktape/Makefile: $(OBJROOT)/duktape/binding.h
+	$(VQ)echo "     TOUCH: $@"
+	$(Q)touch $@
 
 # create unimplemented report for doxygen
 docs/UnimplementedJavascript.md: content/handlers/javascript/duktape/netsurf.bnd $(BINDINGS)
