@@ -197,14 +197,14 @@ make -j"$JOBS" TARGET=windows PREFIX="$PREFIX" HOST="$CROSS" \
     NETSURF_USE_LIBICONV_PLUG=NO
 
 test -f NetSurf.exe
+test "$(head -c 2 NetSurf.exe)" = "MZ"
+"$CROSS-strip" NetSurf.exe
 
 make -j"$JOBS" TARGET=windows PREFIX="$PREFIX" HOST="$CROSS" \
     CC="$CROSS-gcc" CXX="$CROSS-g++" AR="$CROSS-ar" RANLIB="$CROSS-ranlib" \
     STRIP="$CROSS-strip" WINDRES="$CROSS-windres" COMMON_WARNFLAGS="-Wall" \
     NETSURF_USE_LIBICONV_PLUG=NO whatever-win64-setup.exe
 test -s whatever-win64-setup.exe
-test "$(head -c 2 NetSurf.exe)" = "MZ"
-"$CROSS-strip" NetSurf.exe
 
 rm -rf "$ROOT/whatever-win64"
 mkdir -p "$ROOT/whatever-win64/res"
