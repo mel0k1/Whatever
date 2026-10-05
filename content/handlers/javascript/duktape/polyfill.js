@@ -84,6 +84,300 @@ if (!Array.from) {
   }());
 }
 
+/* ES2015+ builtin shims for Duktape 2.7 */
+(function () {
+    'use strict';
+    var G = (typeof globalThis === 'object' && globalThis !== null) ? globalThis :
+        (typeof window === 'object' && window !== null ? window : null);
+    function def(o, n, f) {
+        if (o != null && o[n] === undefined) {
+            Object.defineProperty(o, n, { value: f, writable: true, configurable: true });
+        }
+    }
+    function toInt(v) {
+        var n = Number(v);
+        if (n !== n) return 0;
+        if (n === 0 || n === Infinity || n === -Infinity) return n;
+        return (n > 0 ? 1 : -1) * Math.floor(Math.abs(n));
+    }
+    if (G && typeof G.globalThis === 'undefined') {
+        try { G.globalThis = G; } catch (e) {}
+    }
+    def(String.prototype, 'startsWith', function (s) {
+        var t = String(this);
+        var p = toInt(arguments[1]);
+        if (p < 0) p = 0;
+        if (p > t.length) p = t.length;
+        return t.indexOf(String(s), p) === p;
+    });
+    def(String.prototype, 'endsWith', function (s) {
+        var t = String(this);
+        var e = arguments[1] === undefined ? t.length : toInt(arguments[1]);
+        if (e > t.length) e = t.length;
+        if (e < 0) e = 0;
+        var p = e - String(s).length;
+        return p >= 0 && t.lastIndexOf(String(s), p) === p;
+    });
+    def(String.prototype, 'includes', function (s) {
+        var t = String(this);
+        var p = toInt(arguments[1]);
+        if (p < 0) p = 0;
+        return t.indexOf(String(s), p) !== -1;
+    });
+    def(String.prototype, 'repeat', function (c) {
+        var n = toInt(c);
+        if (n < 0 || n === Infinity) throw new RangeError('invalid repeat count');
+        var t = String(this);
+        if (n === 0 || t === '') return '';
+        if (t.length * n > (1 << 28)) throw new RangeError('repeat count too large');
+        var out = '';
+        while (n > 0) {
+            if (n & 1) out += t;
+            t += t;
+            n >>= 1;
+        }
+        return out;
+    });
+    def(String.prototype, 'padStart', function (len) {
+        var t = String(this);
+        var pad = arguments[1] === undefined ? ' ' : String(arguments[1]);
+        len = toInt(len);
+        if (pad === '' || t.length >= len) return t;
+        var need = len - t.length;
+        var fill = '';
+        while (fill.length < need) fill += pad;
+        return fill.slice(0, need) + t;
+    });
+    def(String.prototype, 'padEnd', function (len) {
+        var t = String(this);
+        var pad = arguments[1] === undefined ? ' ' : String(arguments[1]);
+        len = toInt(len);
+        if (pad === '' || t.length >= len) return t;
+        var need = len - t.length;
+        var fill = '';
+        while (fill.length < need) fill += pad;
+        return t + fill.slice(0, need);
+    });
+    def(String.prototype, 'codePointAt', function (i) {
+        var t = String(this);
+        var n = t.length;
+        i = toInt(i);
+        if (i < 0 || i >= n) return undefined;
+        var c = t.charCodeAt(i);
+        if (c >= 0xD800 && c <= 0xDBFF && i + 1 < n) {
+            var d = t.charCodeAt(i + 1);
+            if (d >= 0xDC00 && d <= 0xDFFF) {
+                return (c - 0xD800) * 0x400 + (d - 0xDC00) + 0x10000;
+            }
+        }
+        return c;
+    });
+    def(String.prototype, 'trimStart', function () {
+        return String(this).replace(/^\s+/, '');
+    });
+    def(String.prototype, 'trimEnd', function () {
+        return String(this).replace(/\s+$/, '');
+    });
+    def(String.prototype, 'at', function (i) {
+        var t = String(this);
+        i = toInt(i);
+        if (i < 0) i += t.length;
+        if (i < 0 || i >= t.length) return undefined;
+        return t.charAt(i);
+    });
+    def(Array.prototype, 'of', function () {
+        return Array.prototype.slice.call(arguments);
+    });
+    def(Array.prototype, 'find', function (fn) {
+        var thisArg = arguments[1];
+        if (typeof fn !== 'function') throw new TypeError('find requires a function');
+        for (var i = 0; i < this.length; i++) {
+            if (fn.call(thisArg, this[i], i, this)) return this[i];
+        }
+        return undefined;
+    });
+    def(Array.prototype, 'findIndex', function (fn) {
+        var thisArg = arguments[1];
+        if (typeof fn !== 'function') throw new TypeError('findIndex requires a function');
+        for (var i = 0; i < this.length; i++) {
+            if (fn.call(thisArg, this[i], i, this)) return i;
+        }
+        return -1;
+    });
+    def(Array.prototype, 'includes', function (s) {
+        var n = this.length;
+        if (n === 0) return false;
+        var f = toInt(arguments[1]);
+        if (f >= n) return false;
+        if (f < 0) f = Math.max(n + f, 0);
+        for (var i = f; i < n; i++) {
+            var v = this[i];
+            if (v === s || (v !== v && s !== s)) return true;
+        }
+        return false;
+    });
+    def(Array.prototype, 'fill', function (v) {
+        var n = this.length;
+        var s = toInt(arguments[1]);
+        var e = arguments[2] === undefined ? n : toInt(arguments[2]);
+        if (s < 0) s = Math.max(n + s, 0);
+        if (e < 0) e = n + e;
+        if (e > n) e = n;
+        for (var i = s; i < e; i++) this[i] = v;
+        return this;
+    });
+    def(Array.prototype, 'flat', function () {
+        var depth = arguments[0] === undefined ? 1 : toInt(arguments[0]);
+        if (depth === Infinity) depth = 1 << 28;
+        function fl(a, d) {
+            var out = [];
+            for (var i = 0; i < a.length; i++) {
+                if (Array.isArray(a[i]) && d > 0) {
+                    var inner = fl(a[i], d - 1);
+                    for (var j = 0; j < inner.length; j++) out.push(inner[j]);
+                } else {
+                    out.push(a[i]);
+                }
+            }
+            return out;
+        }
+        return fl(this, depth);
+    });
+    def(Array.prototype, 'flatMap', function (fn) {
+        var thisArg = arguments[1];
+        if (typeof fn !== 'function') throw new TypeError('flatMap requires a function');
+        var out = [];
+        for (var i = 0; i < this.length; i++) {
+            var r = fn.call(thisArg, this[i], i, this);
+            if (Array.isArray(r)) {
+                for (var j = 0; j < r.length; j++) out.push(r[j]);
+            } else {
+                out.push(r);
+            }
+        }
+        return out;
+    });
+    def(Object, 'assign', function (t) {
+        if (t === null || t === undefined) throw new TypeError('assign target required');
+        var o = Object(t);
+        for (var i = 1; i < arguments.length; i++) {
+            var s = arguments[i];
+            if (s === null || s === undefined) continue;
+            var so = Object(s);
+            var keys = Object.keys(so);
+            for (var k = 0; k < keys.length; k++) {
+                o[keys[k]] = so[keys[k]];
+            }
+        }
+        return o;
+    });
+    def(Object, 'values', function (o) {
+        var so = Object(o);
+        var ks = Object.keys(so);
+        var out = [];
+        for (var i = 0; i < ks.length; i++) out.push(so[ks[i]]);
+        return out;
+    });
+    def(Object, 'entries', function (o) {
+        var so = Object(o);
+        var ks = Object.keys(so);
+        var out = [];
+        for (var i = 0; i < ks.length; i++) out.push([ks[i], so[ks[i]]]);
+        return out;
+    });
+    def(Object, 'is', function (a, b) {
+        if (a === b) return a !== 0 || 1 / a === 1 / b;
+        return a !== a && b !== b;
+    });
+    def(Object, 'setPrototypeOf', function (o, p) {
+        if (o === null || o === undefined) throw new TypeError('setPrototypeOf requires an object');
+        var acc = Object.getOwnPropertyDescriptor(Object.prototype, '__proto__');
+        if (acc && typeof acc.set === 'function') {
+            acc.set.call(o, p);
+        } else {
+            try { o.__proto__ = p; } catch (e) {}
+        }
+        return o;
+    });
+    def(Object, 'getOwnPropertySymbols', function () { return []; });
+    def(Object, 'fromEntries', function (list) {
+        var o = {};
+        var a = Object(list);
+        if (a && typeof a.length === 'number') {
+            for (var i = 0; i < a.length; i++) {
+                var e = a[i];
+                if (e !== null && e !== undefined && e.length) {
+                    o[e[0]] = e[1];
+                }
+            }
+        }
+        return o;
+    });
+    def(Number, 'EPSILON', Math.pow(2, -52));
+    def(Number, 'MAX_SAFE_INTEGER', 9007199254740991);
+    def(Number, 'MIN_SAFE_INTEGER', -9007199254740991);
+    def(Number, 'isInteger', function (v) {
+        return typeof v === 'number' && v === v && v !== Infinity && v !== -Infinity && Math.floor(v) === v;
+    });
+    def(Number, 'isSafeInteger', function (v) {
+        return Number.isInteger(v) && Math.abs(v) <= 9007199254740991;
+    });
+    def(Number, 'isFinite', function (v) {
+        return typeof v === 'number' && v === v && v !== Infinity && v !== -Infinity;
+    });
+    def(Number, 'isNaN', function (v) {
+        return typeof v === 'number' && v !== v;
+    });
+    def(Math, 'trunc', function (v) {
+        var n = Number(v);
+        if (n !== n || n === Infinity || n === -Infinity || n === 0) return n;
+        return n < 0 ? -Math.floor(-n) : Math.floor(n);
+    });
+    def(Math, 'sign', function (v) {
+        var n = Number(v);
+        if (n !== n || n === 0) return n;
+        return n > 0 ? 1 : -1;
+    });
+    def(Math, 'cbrt', function (v) {
+        var n = Number(v);
+        if (n === 0 || n !== n || n === Infinity || n === -Infinity) return n;
+        var s = n < 0 ? -1 : 1;
+        return s * Math.pow(Math.abs(n), 1 / 3);
+    });
+    def(Math, 'log2', function (v) { return Math.log(Number(v)) / Math.LN2; });
+    def(Math, 'log10', function (v) { return Math.log(Number(v)) / Math.LN10; });
+    def(Math, 'hypot', function () {
+        var s = 0;
+        for (var i = 0; i < arguments.length; i++) {
+            var n = Number(arguments[i]);
+            if (n === Infinity || n === -Infinity) return Infinity;
+            s += n * n;
+        }
+        return Math.sqrt(s);
+    });
+    def(Math, 'imul', function (a, b) {
+        var ua = (a >>> 16) & 0xffff;
+        var ub = (b >>> 16) & 0xffff;
+        return ((((a & 0xffff) * ub) + (ua * (b & 0xffff))) << 16) + ((a & 0xffff) * (b & 0xffff)) | 0;
+    });
+    def(Math, 'clz32', function (v) {
+        var n = toInt(v) >>> 0;
+        if (n === 0) return 32;
+        var c = 0;
+        if ((n & 0xffff0000) === 0) { c += 16; n <<= 16; }
+        if ((n & 0xff000000) === 0) { c += 8; n <<= 8; }
+        if ((n & 0xf0000000) === 0) { c += 4; n <<= 4; }
+        if ((n & 0xc0000000) === 0) { c += 2; n <<= 2; }
+        if ((n & 0x80000000) === 0) { c += 1; }
+        return c;
+    });
+    def(Math, 'fround', function (v) {
+        var f = new Float32Array(1);
+        f[0] = Number(v);
+        return f[0];
+    });
+})();
+
 // DOMTokenList formatter, in theory we can remove this if we do the stringifier IDL support
 
 DOMTokenList.prototype.toString = function () {
