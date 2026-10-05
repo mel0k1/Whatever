@@ -646,6 +646,14 @@ void js_destroyheap(jsheap *heap)
 /* Just for here, the CTX is in ret, not thread */
 #define CTX (ret->ctx)
 
+static duk_ret_t dukky_xhr_constructor(duk_context *ctx)
+{
+	if (dukky_create_object(ctx, PROTO_NAME(XMLHTTPREQUEST), 0) != DUK_EXEC_SUCCESS) {
+		return duk_error(ctx, DUK_ERR_ERROR, "Failed to create XMLHttpRequest");
+	}
+	return 1;
+}
+
 /* exported interface documented in js.h */
 nserror js_newthread(jsheap *heap, void *win_priv, void *doc_priv, jsthread **thread)
 {
@@ -683,6 +691,14 @@ nserror js_newthread(jsheap *heap, void *win_priv, void *doc_priv, jsthread **th
 	duk_push_global_object(CTX);
 	duk_put_prop_string(CTX, -2, PROTO_MAGIC);
 	duk_set_global_object(CTX);
+
+	duk_get_global_string(CTX, PROTO_MAGIC);
+	duk_get_prop_string(CTX, -1, PROTO_MAGIC);
+	duk_push_c_function(CTX, dukky_xhr_constructor, 0);
+	duk_get_prop_string(CTX, -2, PROTO_NAME(XMLHTTPREQUEST));
+	duk_put_prop_string(CTX, -2, "prototype");
+	duk_put_global_string(CTX, "XMLHttpRequest");
+	duk_pop_2(CTX);
 
 	/* Now we need to prepare our node mapping table */
 	duk_push_object(CTX);

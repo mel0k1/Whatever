@@ -1,0 +1,23 @@
+// XMLHttpRequest for the Whatever JS engine
+// Minimal subset used by the binding: text responses, header access,
+// async operation with readystatechange/load/error events.
+
+interface XMLHttpRequest {
+  readonly attribute unsigned short readyState;
+  readonly attribute unsigned short status;
+  readonly attribute DOMString statusText;
+  readonly attribute DOMString responseText;
+  readonly attribute DOMString response;
+  readonly attribute DOMString responseURL;
+           attribute DOMString responseType;
+           attribute boolean withCredentials;
+           attribute unsigned long timeout;
+
+  void open(DOMString method, DOMString url);
+  void setRequestHeader(DOMString name, DOMString value);
+  void send(optional DOMString body);
+  void abort();
+  DOMString? getResponseHeader(DOMString name);
+  DOMString getAllResponseHeaders();
+  void overrideMimeType(DOMString mime);
+};

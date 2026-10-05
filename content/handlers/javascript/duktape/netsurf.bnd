@@ -16,6 +16,7 @@ binding duk_libdom {
 	webidl "uievents.idl";
 	webidl "urlutils.idl";
 	webidl "console.idl";
+	webidl "xhr.idl";
 
 	preface	%{
 /* DukTape JavaScript bindings for NetSurf browser

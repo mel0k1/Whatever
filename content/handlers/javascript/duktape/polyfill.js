@@ -1361,7 +1361,13 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
     }
     w.fetch = fetch;
 
+    if (typeof XMLHttpRequest !== 'function') {
+        return;
+    }
     var X = XMLHttpRequest.prototype;
+    if (!X || typeof X !== 'object') {
+        return;
+    }
     X.__xhrDispatch = function (x, kind, loaded, total) {
         var ev = {
             type: kind,
