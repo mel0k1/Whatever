@@ -16,7 +16,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config flex bison gperf perl zip \
+            build-essential pkg-config flex bison gperf perl zip nsis \
             gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64 curl
 
       - name: Cache cross build
@@ -32,8 +32,21 @@ jobs:
       - name: Cross build (mingw64)
         run: ./tools/cross-windows.sh
 
+      - name: Build installer
+        run: |
+          makensis -V2 -DOUTFNAME=whatever-win64-setup.exe \
+            -DVERSIONMAJOR=3 -DVERSIONMINOR=12 -DVERSIONBUILD=0 \
+            -DRESDIR="$PWD/frontends/windows/res" \
+            -DOBJROOT="$PWD/build/x86_64-w64-mingw32-windows" \
+            -DEXEFILE="$PWD/NetSurf.exe" \
+            -DLICFILE="$PWD/COPYING" \
+            frontends/windows/res/installer.nsi
+          test -s whatever-win64-setup.exe
+
       - uses: actions/upload-artifact@v4
         with:
           name: whatever-win64
-          path: whatever-win64.zip
+          path: |
+            whatever-win64.zip
+            whatever-win64-setup.exe
           if-no-files-found: error
