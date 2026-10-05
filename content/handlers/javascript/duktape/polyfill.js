@@ -1433,6 +1433,212 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
                 return __nsMetrics().devicePixelRatio;
             });
         }
+
+        if (typeof window.confirm !== 'function') {
+            window.confirm = function () {
+                return false;
+            };
+        }
+        if (typeof window.prompt !== 'function') {
+            window.prompt = function () {
+                return null;
+            };
+        }
+        if (typeof window.print !== 'function') {
+            window.print = function () {
+            };
+        }
+        if (typeof window.performance === 'undefined' || window.performance === null) {
+            window.performance = {
+                timeOrigin: new Date().getTime(),
+                now: function () {
+                    return new Date().getTime();
+                }
+            };
+        } else if (typeof window.performance.now !== 'function') {
+            window.performance.now = function () {
+                return new Date().getTime();
+            };
+        }
+        if (typeof window.getSelection !== 'function') {
+            window.getSelection = function () {
+                return {
+                    rangeCount: 0,
+                    isCollapsed: true,
+                    getRangeAt: function () {
+                        throw new Error('no ranges');
+                    },
+                    addRange: function () {
+                    },
+                    removeAllRanges: function () {
+                    },
+                    toString: function () {
+                        return '';
+                    }
+                };
+            };
+        }
+        if (typeof window.history === 'undefined' || window.history === null) {
+            var histState = null;
+            var histObj = {
+                length: 0,
+                scrollRestoration: 'auto',
+                back: function () {
+                    histObj.go(-1);
+                },
+                forward: function () {
+                    histObj.go(1);
+                },
+                go: function (n) {
+                    if (typeof __nsHistoryGo === 'function') {
+                        __nsHistoryGo(Number(n) || 0);
+                    }
+                },
+                pushState: function (s) {
+                    histState = s;
+                },
+                replaceState: function (s) {
+                    histState = s;
+                }
+            };
+            Object.defineProperty(histObj, 'state', {
+                get: function () {
+                    return histState;
+                },
+                configurable: true
+            });
+            window.history = histObj;
+        }
+        if (typeof document.createEvent === 'function') {
+            if (typeof window.Event !== 'function') {
+                window.Event = function (type, params) {
+                    var evt = document.createEvent('Event');
+                    var p = params || {};
+                    evt.initEvent(type, !!p.bubbles, !!p.cancelable);
+                    return evt;
+                };
+                window.Event.NONE = 0;
+                window.Event.CAPTURING_PHASE = 1;
+                window.Event.AT_TARGET = 2;
+                window.Event.BUBBLING_PHASE = 3;
+            }
+            if (typeof window.CustomEvent !== 'function') {
+                window.CustomEvent = function (type, params) {
+                    var evt = document.createEvent('Event');
+                    var p = params || {};
+                    evt.initEvent(type, !!p.bubbles, !!p.cancelable);
+                    try {
+                        evt.detail = p.detail === undefined ? null : p.detail;
+                    } catch (e) {}
+                    return evt;
+                };
+                window.CustomEvent.prototype = window.Event.prototype;
+            }
+        }
+        if (typeof navigator !== 'undefined' && navigator !== null && typeof navigator.language === 'undefined') {
+            navigator.language = 'en-US';
+            navigator.languages = ['en-US'];
+        }
+        try {
+            if (typeof window.self === 'undefined') {
+                window.self = window;
+            }
+            if (typeof window.parent === 'undefined') {
+                window.parent = window;
+            }
+            if (typeof window.top === 'undefined') {
+                window.top = window;
+            }
+        } catch (eSelf) {}
+        if (typeof window.localStorage === 'undefined' || window.localStorage === null) {
+            var nsStore = (function () {
+                function esc(s) {
+                    return String(s).replace(/\\/g, '\\\\').replace(/\t/g, '\\t')
+                        .replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+                }
+                function unesc(s) {
+                    return String(s).replace(/\\[\\trn]/g, function (m) {
+                        var c = m.charAt(1);
+                        return c === '\\' ? '\\' : (c === 't' ? '\t' : (c === 'n' ? '\n' : '\r'));
+                    });
+                }
+                function parse(blob) {
+                    var map = {};
+                    var lines = String(blob === undefined || blob === null ? '' : blob).split('\n');
+                    for (var i = 0; i < lines.length; i++) {
+                        if (lines[i] === '') continue;
+                        var t = lines[i].indexOf('\t');
+                        if (t < 0) continue;
+                        map[unesc(lines[i].slice(0, t))] = unesc(lines[i].slice(t + 1));
+                    }
+                    return map;
+                }
+                function originOf() {
+                    var l = window.location;
+                    if (!l || typeof l.protocol !== 'string') {
+                        return 'null';
+                    }
+                    if (l.protocol === 'file:') {
+                        return 'file';
+                    }
+                    return l.protocol + '//' + String(l.host || '');
+                }
+                function Store(namespace) {
+                    this.__m = {};
+                    this.__live = false;
+                    if (namespace === 'local' && typeof __nsStorageRead === 'function') {
+                        this.__m = parse(__nsStorageRead(originOf()));
+                        this.__live = true;
+                    }
+                }
+                Store.prototype.__save = function () {
+                    if (!this.__live) return;
+                    var out = [];
+                    for (var k in this.__m) {
+                        if (Object.prototype.hasOwnProperty.call(this.__m, k)) {
+                            out.push(esc(k) + '\t' + esc(this.__m[k]));
+                        }
+                    }
+                    __nsStorageWrite(originOf(), out.length ? out.join('\n') + '\n' : '');
+                };
+                Store.prototype.getItem = function (k) {
+                    k = String(k);
+                    if (Object.prototype.hasOwnProperty.call(this.__m, k)) {
+                        return this.__m[k];
+                    }
+                    return null;
+                };
+                Store.prototype.setItem = function (k, v) {
+                    this.__m[String(k)] = String(v);
+                    this.__save();
+                };
+                Store.prototype.removeItem = function (k) {
+                    delete this.__m[String(k)];
+                    this.__save();
+                };
+                Store.prototype.clear = function () {
+                    this.__m = {};
+                    this.__save();
+                };
+                Store.prototype.key = function (i) {
+                    var ks = Object.keys(this.__m);
+                    return (i >= 0 && i < ks.length) ? ks[i] : null;
+                };
+                Object.defineProperty(Store.prototype, 'length', {
+                    get: function () {
+                        return Object.keys(this.__m).length;
+                    },
+                    configurable: true
+                });
+                return Store;
+            })();
+            try {
+                window.localStorage = new nsStore('local');
+            } catch (eStore) {
+                window.localStorage = null;
+            }
+            window.sessionStorage = new nsStore('session');
+        }
     }
 })();
 
