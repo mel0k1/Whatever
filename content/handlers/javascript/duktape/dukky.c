@@ -917,20 +917,7 @@ void dukky_log_stack_frame(duk_context *ctx, const char * reason)
 }
 
 
-struct html_content;
-extern void html_schedule_reformat(struct html_content *htmlc);
-
-static void dukky_request_reformat(duk_context *ctx)
-{
-	window_private_t *winpriv = NULL;
-	duk_push_global_object(ctx);
-	duk_get_prop_string(ctx, -1, MAGIC(private));
-	winpriv = duk_get_pointer(ctx, -1);
-	duk_pop_2(ctx);
-	if (winpriv != NULL && winpriv->htmlc != NULL) {
-		html_schedule_reformat(winpriv->htmlc);
-	}
-}
+extern void dukky_window_reformat_request(duk_context *ctx);
 
 /* exported interface documented in js.h */
 bool
@@ -983,7 +970,7 @@ handle_error:
 	dukky_dump_error(CTX);
 out:
 	dukky_leave_thread(thread);
-	dukky_request_reformat(CTX);
+	dukky_window_reformat_request(CTX);
 	return ret;
 }
 
@@ -1355,7 +1342,7 @@ out:
 	/* ... */
 	dom_node_unref(targ);
 	dom_string_unref(name);
-	dukky_request_reformat(ctx);
+	dukky_window_reformat_request(ctx);
 }
 
 void dukky_register_event_listener_for(duk_context *ctx,

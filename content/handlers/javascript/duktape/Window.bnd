@@ -273,6 +273,18 @@ static duk_ret_t dukky_window_closedown_thread(duk_context *ctx)
 	return 0;
 }
 
+void dukky_window_reformat_request(duk_context *ctx)
+{
+	window_private_t *winpriv = NULL;
+	duk_push_global_object(ctx);
+	duk_get_prop_string(ctx, -1, dukky_magic_string_private);
+	winpriv = duk_get_pointer(ctx, -1);
+	duk_pop_2(ctx);
+	if (winpriv != NULL && winpriv->htmlc != NULL) {
+		html_schedule_reformat(winpriv->htmlc);
+	}
+}
+
 %};
 };
 
