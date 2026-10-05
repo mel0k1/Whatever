@@ -32,6 +32,7 @@ $(OBJROOT)/duktape/binding.h: content/handlers/javascript/duktape/netsurf.bnd $(
 	$(Q)$(MKDIR) -p $(OBJROOT)/duktape
 	$(VQ)echo " GENBIND: $<"
 	$(Q)nsgenbind $(GBFLAGS) -I content/handlers/javascript/WebIDL $< $(OBJROOT)/duktape
+	$(Q)touch $(OBJROOT)/duktape/Makefile
 
 $(OBJROOT)/duktape/Makefile: $(OBJROOT)/duktape/binding.h
 	$(VQ)echo "     TOUCH: $@"
