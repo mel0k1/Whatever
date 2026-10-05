@@ -46,6 +46,7 @@
 
 #include <dom/dom.h>
 #include <dom/bindings/hubbub/parser.h>
+#include <dom/bindings/xml/parser.h>
 #include <string.h>
 
 #define EVENT_MAGIC MAGIC(EVENT_MAP)
@@ -665,6 +666,41 @@ static duk_ret_t dukky_domparser_constructor(duk_context *ctx)
 	return 0;
 }
 
+
+static void dukky_domparser_msg(uint32_t severity, void *ctx, const char *msg, ...)
+{
+	UNUSED(severity);
+	UNUSED(ctx);
+	UNUSED(msg);
+}
+
+static duk_ret_t dukky_domparser_parse_xml(duk_context *ctx, const char *xml,
+		size_t len)
+{
+	dom_xml_parser *parser = NULL;
+	dom_document *doc = NULL;
+	dom_xml_error err;
+
+	parser = dom_xml_parser_create(NULL, "UTF-8", dukky_domparser_msg, NULL, &doc);
+	if (parser == NULL || doc == NULL) {
+		return duk_error(ctx, DUK_ERR_ERROR,
+				"DOMParser: unable to create xml parser");
+	}
+	err = dom_xml_parser_parse_chunk(parser, (uint8_t *)xml, len);
+	if (err == DOM_XML_OK) {
+		err = dom_xml_parser_completed(parser);
+	}
+	if (err != DOM_XML_OK) {
+		dom_xml_parser_destroy(parser);
+		dom_node_unref((struct dom_node *)doc);
+		return duk_error(ctx, DUK_ERR_ERROR, "DOMParser: parse failure");
+	}
+	dukky_push_node(ctx, (struct dom_node *)doc);
+	dom_node_unref((struct dom_node *)doc);
+	dom_xml_parser_destroy(parser);
+	return 1;
+}
+
 static duk_ret_t dukky_domparser_parse_from_string(duk_context *ctx)
 {
 	dom_hubbub_parser_params params;
@@ -691,31 +727,36 @@ static duk_ret_t dukky_domparser_parse_from_string(duk_context *ctx)
 				"Unsupported source type '%s'", mime);
 	}
 
-	memset(&params, 0, sizeof params);
-	params.enc = "UTF-8";
-	params.fix_enc = true;
-	params.enable_script = false;
-	params.msg = NULL;
-	params.ctx = NULL;
+	if (strcmp(mime, "text/html") == 0 ||
+			strcmp(mime, "application/xhtml+xml") == 0) {
+		memset(&params, 0, sizeof params);
+		params.enc = "UTF-8";
+		params.fix_enc = true;
+		params.enable_script = false;
+		params.msg = NULL;
+		params.ctx = NULL;
 
-	err = dom_hubbub_parser_create(&params, &parser, &doc);
-	if (err != DOM_HUBBUB_OK || parser == NULL || doc == NULL) {
-		return duk_error(ctx, DUK_ERR_ERROR,
-				"DOMParser: unable to create parser");
-	}
-	err = dom_hubbub_parser_parse_chunk(parser, (const uint8_t *)html, len);
-	if (err == DOM_HUBBUB_OK) {
-		err = dom_hubbub_parser_completed(parser);
-	}
-	if (err != DOM_HUBBUB_OK) {
-		dom_hubbub_parser_destroy(parser);
+		err = dom_hubbub_parser_create(&params, &parser, &doc);
+		if (err != DOM_HUBBUB_OK || parser == NULL || doc == NULL) {
+			return duk_error(ctx, DUK_ERR_ERROR,
+					"DOMParser: unable to create parser");
+		}
+		err = dom_hubbub_parser_parse_chunk(parser, (const uint8_t *)html, len);
+		if (err == DOM_HUBBUB_OK) {
+			err = dom_hubbub_parser_completed(parser);
+		}
+		if (err != DOM_HUBBUB_OK) {
+			dom_hubbub_parser_destroy(parser);
+			dom_node_unref((struct dom_node *)doc);
+			return duk_error(ctx, DUK_ERR_ERROR, "DOMParser: parse failure");
+		}
+		dukky_push_node(ctx, (struct dom_node *)doc);
 		dom_node_unref((struct dom_node *)doc);
-		return duk_error(ctx, DUK_ERR_ERROR, "DOMParser: parse failure");
+		dom_hubbub_parser_destroy(parser);
+		return 1;
 	}
-	dukky_push_node(ctx, (struct dom_node *)doc);
-	dom_node_unref((struct dom_node *)doc);
-	dom_hubbub_parser_destroy(parser);
-	return 1;
+
+	return dukky_domparser_parse_xml(ctx, html, len);
 }
 
 /* exported interface documented in js.h */
