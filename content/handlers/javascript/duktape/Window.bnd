@@ -28,6 +28,17 @@ class Window {
 #define WINDOW_CALLBACKS MAGIC(WindowCallbacks)
 #define HANDLER_MAGIC MAGIC(HANDLER_MAP)
 
+void dukky_window_drain_microtasks(duk_context *ctx)
+{
+	duk_push_global_object(ctx);
+	duk_get_prop_string(ctx, -1, "__drainTasks");
+	if (duk_is_function(ctx, -1)) {
+		(void)duk_pcall(ctx, 0);
+	}
+	duk_pop(ctx);
+	duk_pop(ctx);
+}
+
 static size_t next_handle = 0;
 
 typedef struct window_schedule_s {
@@ -113,6 +124,7 @@ window_schedule_callback(void *p)
 			     priv->handle,
 			     priv->repeat_timeout == 0);
 	priv->running = false;
+	dukky_window_drain_microtasks(priv->ctx);
 	html_schedule_reformat(priv->owner->htmlc);
 
 	if (priv->repeat_timeout > 0) {
@@ -285,6 +297,14 @@ void dukky_window_reformat_request(duk_context *ctx)
 	}
 }
 
+duk_ret_t dukky_window_xhr_constructor(duk_context *ctx)
+{
+	if (dukky_create_object(ctx, PROTO_NAME(XMLHTTPREQUEST), 0) != DUK_EXEC_SUCCESS) {
+		return duk_error(ctx, DUK_ERR_ERROR, "Failed to create XMLHttpRequest");
+	}
+	return 1;
+}
+
 %};
 };
 
@@ -410,6 +430,8 @@ prototype Window()
 	/* ** WebAssembly */
 	/* As yet, Duktape lacks WA */
 #undef EXPOSE
+	duk_push_c_function(ctx, dukky_window_xhr_constructor, 0);
+	duk_put_prop_string(ctx, 0, "XMLHttpRequest");
 	/* Add s3kr1t method to close the JS thread (browsing context) */
 	duk_dup(ctx, 0);
 	duk_push_string(ctx, MAGIC(closedownThread));

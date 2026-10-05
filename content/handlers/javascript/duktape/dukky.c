@@ -918,6 +918,7 @@ void dukky_log_stack_frame(duk_context *ctx, const char * reason)
 
 
 extern void dukky_window_reformat_request(duk_context *ctx);
+extern void dukky_window_drain_microtasks(duk_context *ctx);
 
 /* exported interface documented in js.h */
 bool
@@ -970,6 +971,7 @@ handle_error:
 	dukky_dump_error(CTX);
 out:
 	dukky_leave_thread(thread);
+	dukky_window_drain_microtasks(CTX);
 	dukky_window_reformat_request(CTX);
 	return ret;
 }
