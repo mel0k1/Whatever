@@ -939,6 +939,53 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
             return __nsElementFromPoint(Number(x) || 0, Number(y) || 0);
         });
     }
+    var nlInst = doc.childNodes;
+    var nlProto = nlInst === null || nlInst === undefined ? null : Object.getPrototypeOf(nlInst);
+    if (nlProto !== null && nlProto !== undefined && nlProto.forEach === undefined) {
+        defineValue(nlProto, 'forEach', function (cb) {
+            var thisArg = arguments.length > 1 ? arguments[1] : undefined;
+            for (var i = 0; i < this.length; i++) {
+                cb.call(thisArg, this.item(i), i, this);
+            }
+        });
+        defineValue(nlProto, 'keys', function () {
+            var out = [];
+            for (var i = 0; i < this.length; i++) {
+                out.push(i);
+            }
+            return out;
+        });
+        defineValue(nlProto, 'values', function () {
+            var out = [];
+            for (var i = 0; i < this.length; i++) {
+                out.push(this.item(i));
+            }
+            return out;
+        });
+        defineValue(nlProto, 'entries', function () {
+            var out = [];
+            for (var i = 0; i < this.length; i++) {
+                out.push([i, this.item(i)]);
+            }
+            return out;
+        });
+        if (typeof Symbol === 'function' && Symbol.iterator !== undefined) {
+            defineValue(nlProto, Symbol.iterator, function () {
+                var idx = 0;
+                var self = this;
+                return {
+                    next: function () {
+                        if (idx < self.length) {
+                            var v = self.item(idx);
+                            idx++;
+                            return {value: v, done: false};
+                        }
+                        return {value: undefined, done: true};
+                    }
+                };
+            });
+        }
+    }
     if (elementProto.querySelector === undefined) {
         defineValue(elementProto, 'querySelector', function (sel) {
             var r = queryAll(this, parseSelector(sel), true);
@@ -1597,6 +1644,280 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
                 }
                 __nsScrollTo(window.scrollX + scrI(x), window.scrollY + scrI(y));
             });
+        }
+        if (typeof window.queueMicrotask !== 'function') {
+            var qmP = typeof window.Promise === 'function' ? window.Promise :
+                typeof Promise === 'function' ? Promise : null;
+            if (qmP !== null) {
+                defineValue(window, 'queueMicrotask', function (cb) {
+                    qmP.resolve().then(cb);
+                });
+            }
+        }
+        if (typeof window.CSS === 'undefined' || window.CSS === null) {
+            window.CSS = {};
+        }
+        if (typeof window.CSS.escape !== 'function') {
+            window.CSS.escape = function (v) {
+                var s = String(v === undefined || v === null ? '' : v);
+                var out = '';
+                for (var i = 0; i < s.length; i++) {
+                    var c = s.charCodeAt(i);
+                    var ok = (c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A) || (c >= 0x30 && c <= 0x39) || c === 0x2D || c === 0x5F;
+                    if (ok && !(i === 0 && c >= 0x30 && c <= 0x39)) {
+                        out += s.charAt(i);
+                    } else if (i === 0 && c >= 0x30 && c <= 0x39) {
+                        out += '\\' + c.toString(16) + ' ';
+                    } else if (c === 0x00) {
+                        out += '\uFFFD';
+                    } else if (c < 0x20 || c === 0x7F) {
+                        out += '\\' + c.toString(16) + ' ';
+                    } else {
+                        out += '\\' + s.charAt(i);
+                    }
+                }
+                return out;
+            };
+        }
+        if (typeof window.TextEncoder === 'undefined') {
+            var makeBytes = function (s) {
+                var out = [];
+                for (var i = 0; i < s.length; i++) {
+                    var c = s.charCodeAt(i);
+                    if (c >= 0xD800 && c <= 0xDBFF && i + 1 < s.length) {
+                        var d = s.charCodeAt(i + 1);
+                        if (d >= 0xDC00 && d <= 0xDFFF) {
+                            c = 0x10000 + ((c - 0xD800) << 10) + (d - 0xDC00);
+                            i++;
+                        }
+                    }
+                    if (c < 0x80) {
+                        out.push(c);
+                    } else if (c < 0x800) {
+                        out.push(0xC0 | (c >> 6), 0x80 | (c & 63));
+                    } else if (c < 0x10000) {
+                        out.push(0xE0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+                    } else {
+                        out.push(0xF0 | (c >> 18), 0x80 | ((c >> 12) & 63), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+                    }
+                }
+                return out;
+            };
+            defineValue(window, 'TextEncoder', function () {
+            });
+            window.TextEncoder.prototype.encode = function (str) {
+                var s = String(str === undefined ? '' : str);
+                var bytes = makeBytes(s);
+                if (typeof Uint8Array === 'function') {
+                    return new Uint8Array(bytes);
+                }
+                bytes.item = function (i) {
+                    return i >= 0 && i < bytes.length ? bytes[i] : null;
+                };
+                return bytes;
+            };
+        }
+        if (typeof window.TextDecoder === 'undefined') {
+            defineValue(window, 'TextDecoder', function () {
+            });
+            window.TextDecoder.prototype.decode = function (data) {
+                var a = data === null || data === undefined ? [] : data;
+                var out = '';
+                var i = 0;
+                while (i < a.length) {
+                    var c = a[i];
+                    if (c < 0x80) {
+                        out += String.fromCharCode(c);
+                        i++;
+                    } else if ((c & 0xE0) === 0xC0 && i + 1 < a.length) {
+                        out += String.fromCharCode(((c & 31) << 6) | (a[i + 1] & 63));
+                        i += 2;
+                    } else if ((c & 0xF0) === 0xE0 && i + 2 < a.length) {
+                        out += String.fromCharCode(((c & 15) << 12) | ((a[i + 1] & 63) << 6) | (a[i + 2] & 63));
+                        i += 3;
+                    } else if ((c & 0xF8) === 0xF0 && i + 3 < a.length) {
+                        var cp = ((c & 7) << 18) | ((a[i + 1] & 63) << 12) | ((a[i + 2] & 63) << 6) | (a[i + 3] & 63);
+                        cp -= 0x10000;
+                        out += String.fromCharCode(0xD800 + (cp >> 10), 0xDC00 + (cp & 1023));
+                        i += 4;
+                    } else {
+                        out += '\uFFFD';
+                        i++;
+                    }
+                }
+                return out;
+            };
+        }
+        if (typeof window.URLSearchParams === 'undefined') {
+            var uspDec = function (s) {
+                var t = String(s).replace(/\+/g, '%20');
+                try {
+                    return decodeURIComponent(t);
+                } catch (e) {
+                    return t;
+                }
+            };
+            var uspEnc = function (s) {
+                return encodeURIComponent(String(s)).replace(/[!'()*]/g, function (ch) {
+                    return '%' + ch.charCodeAt(0).toString(16).toUpperCase();
+                }).replace(/%20/g, '+');
+            };
+            defineValue(window, 'URLSearchParams', function (init) {
+                this._m = [];
+                if (typeof init === 'string') {
+                    var q = init.charAt(0) === '?' ? init.slice(1) : init;
+                    var parts = q.split('&');
+                    for (var i = 0; i < parts.length; i++) {
+                        if (parts[i] === '') {
+                            continue;
+                        }
+                        var eq = parts[i].indexOf('=');
+                        var k = eq < 0 ? parts[i] : parts[i].slice(0, eq);
+                        var v = eq < 0 ? '' : parts[i].slice(eq + 1);
+                        this._m.push([uspDec(k), uspDec(v)]);
+                    }
+                } else if (init !== null && init !== undefined && typeof init === 'object') {
+                    if (typeof init.length === 'number') {
+                        for (var j = 0; j < init.length; j++) {
+                            var pr = init[j];
+                            if (pr !== null && pr !== undefined && pr.length >= 1) {
+                                this._m.push([String(pr[0]), pr.length > 1 ? String(pr[1]) : '']);
+                            }
+                        }
+                    } else {
+                        for (var key in init) {
+                            if (Object.prototype.hasOwnProperty.call(init, key)) {
+                                this._m.push([String(key), String(init[key])]);
+                            }
+                        }
+                    }
+                }
+            });
+            window.URLSearchParams.prototype.append = function (k, v) {
+                this._m.push([String(k), String(v)]);
+            };
+            window.URLSearchParams.prototype.get = function (k) {
+                k = String(k);
+                for (var i = 0; i < this._m.length; i++) {
+                    if (this._m[i][0] === k) {
+                        return this._m[i][1];
+                    }
+                }
+                return null;
+            };
+            window.URLSearchParams.prototype.getAll = function (k) {
+                k = String(k);
+                var out = [];
+                for (var i = 0; i < this._m.length; i++) {
+                    if (this._m[i][0] === k) {
+                        out.push(this._m[i][1]);
+                    }
+                }
+                return out;
+            };
+            window.URLSearchParams.prototype.has = function (k) {
+                k = String(k);
+                for (var i = 0; i < this._m.length; i++) {
+                    if (this._m[i][0] === k) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            window.URLSearchParams.prototype.set = function (k, v) {
+                k = String(k);
+                v = String(v);
+                var done = false;
+                for (var i = 0; i < this._m.length; i++) {
+                    if (this._m[i][0] === k) {
+                        if (done) {
+                            this._m.splice(i, 1);
+                            i--;
+                        } else {
+                            this._m[i][1] = v;
+                            done = true;
+                        }
+                    }
+                }
+                if (!done) {
+                    this._m.push([k, v]);
+                }
+            };
+            window.URLSearchParams.prototype.delete = function (k) {
+                k = String(k);
+                for (var i = 0; i < this._m.length; i++) {
+                    if (this._m[i][0] === k) {
+                        this._m.splice(i, 1);
+                        i--;
+                    }
+                }
+            };
+            window.URLSearchParams.prototype.forEach = function (cb) {
+                var thisArg = arguments.length > 1 ? arguments[1] : undefined;
+                for (var i = 0; i < this._m.length; i++) {
+                    cb.call(thisArg, this._m[i][1], this._m[i][0], this);
+                }
+            };
+            window.URLSearchParams.prototype.keys = function () {
+                var out = [];
+                for (var i = 0; i < this._m.length; i++) {
+                    out.push(this._m[i][0]);
+                }
+                return out;
+            };
+            window.URLSearchParams.prototype.values = function () {
+                var out = [];
+                for (var i = 0; i < this._m.length; i++) {
+                    out.push(this._m[i][1]);
+                }
+                return out;
+            };
+            window.URLSearchParams.prototype.entries = function () {
+                var out = [];
+                for (var i = 0; i < this._m.length; i++) {
+                    out.push([this._m[i][0], this._m[i][1]]);
+                }
+                return out;
+            };
+            window.URLSearchParams.prototype.toString = function () {
+                var out = [];
+                for (var i = 0; i < this._m.length; i++) {
+                    out.push(uspEnc(this._m[i][0]) + '=' + uspEnc(this._m[i][1]));
+                }
+                return out.join('&');
+            };
+            if (typeof Symbol === 'function' && Symbol.iterator !== undefined) {
+                defineValue(window.URLSearchParams.prototype, Symbol.iterator, function () {
+                    var idx = 0;
+                    var list = this._m;
+                    return {
+                        next: function () {
+                            if (idx < list.length) {
+                                var pr = list[idx];
+                                idx++;
+                                return {value: [pr[0], pr[1]], done: false};
+                            }
+                            return {value: undefined, done: true};
+                        }
+                    };
+                });
+            }
+        }
+        if (window.location !== null && window.location !== undefined) {
+            var locProto = Object.getPrototypeOf(window.location);
+            var hrefDesc = locProto === null || locProto === undefined ? undefined : Object.getOwnPropertyDescriptor(locProto, 'href');
+            if (hrefDesc !== undefined && hrefDesc !== null && hrefDesc.get !== undefined && hrefDesc.set === undefined &&
+                typeof window.location.assign === 'function') {
+                Object.defineProperty(window.location, 'href', {
+                    get: function () {
+                        return hrefDesc.get.call(window.location);
+                    },
+                    set: function (v) {
+                        window.location.assign(v === null ? '' : String(v));
+                    },
+                    configurable: true
+                });
+            }
         }
 
         if (typeof __nsMetrics === 'function') {
