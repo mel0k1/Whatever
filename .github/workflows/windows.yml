@@ -9,7 +9,6 @@ on:
 jobs:
   mingw64:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -17,8 +16,18 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config flex bison gperf perl \
-            gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64 wget
+            build-essential pkg-config flex bison gperf perl zip \
+            gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64 curl
+
+      - name: Cache cross build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ns-src-win64
+            inst-win64
+            inst-native
+            build/x86_64-w64-mingw32-windows
+          key: win64-${{ hashFiles('tools/cross-windows.sh') }}
 
       - name: Cross build (mingw64)
         run: ./tools/cross-windows.sh
@@ -26,4 +35,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: whatever-win64
-          path: whatever-win64.tar.gz
+          path: whatever-win64.zip
+          if-no-files-found: error
