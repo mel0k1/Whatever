@@ -45,6 +45,8 @@
 #include "dukky.h"
 
 #include <dom/dom.h>
+#include <dom/bindings/hubbub/parser.h>
+#include <string.h>
 
 #define EVENT_MAGIC MAGIC(EVENT_MAP)
 #define HANDLER_LISTENER_MAGIC MAGIC(HANDLER_LISTENER_MAP)
@@ -654,6 +656,68 @@ static duk_ret_t dukky_xhr_constructor(duk_context *ctx)
 	return 1;
 }
 
+static duk_ret_t dukky_domparser_constructor(duk_context *ctx)
+{
+	if (!duk_is_constructor_call(ctx)) {
+		return duk_error(ctx, DUK_ERR_TYPE_ERROR,
+				"DOMParser must be called with 'new'");
+	}
+	return 0;
+}
+
+static duk_ret_t dukky_domparser_parse_from_string(duk_context *ctx)
+{
+	dom_hubbub_parser_params params;
+	dom_hubbub_parser *parser = NULL;
+	dom_document *doc = NULL;
+	dom_hubbub_error err;
+	duk_size_t len;
+	const char *html;
+	const char *mime;
+
+	if (duk_get_top(ctx) < 1) {
+		return duk_error(ctx, DUK_ERR_TYPE_ERROR,
+				"parseFromString requires a string argument");
+	}
+	html = duk_safe_to_lstring(ctx, 0, &len);
+	mime = duk_get_top(ctx) > 1 ? duk_safe_to_string(ctx, 1) : "text/html";
+
+	if (strcmp(mime, "text/html") != 0 &&
+			strcmp(mime, "application/xhtml+xml") != 0 &&
+			strcmp(mime, "application/xml") != 0 &&
+			strcmp(mime, "text/xml") != 0 &&
+			strcmp(mime, "image/svg+xml") != 0) {
+		return duk_error(ctx, DUK_ERR_TYPE_ERROR,
+				"Unsupported source type '%s'", mime);
+	}
+
+	memset(&params, 0, sizeof params);
+	params.enc = "UTF-8";
+	params.fix_enc = true;
+	params.enable_script = false;
+	params.msg = NULL;
+	params.ctx = NULL;
+
+	err = dom_hubbub_parser_create(&params, &parser, &doc);
+	if (err != DOM_HUBBUB_OK || parser == NULL || doc == NULL) {
+		return duk_error(ctx, DUK_ERR_ERROR,
+				"DOMParser: unable to create parser");
+	}
+	err = dom_hubbub_parser_parse_chunk(parser, (const uint8_t *)html, len);
+	if (err == DOM_HUBBUB_OK) {
+		err = dom_hubbub_parser_completed(parser);
+	}
+	if (err != DOM_HUBBUB_OK) {
+		dom_hubbub_parser_destroy(parser);
+		dom_node_unref((struct dom_node *)doc);
+		return duk_error(ctx, DUK_ERR_ERROR, "DOMParser: parse failure");
+	}
+	dukky_push_node(ctx, (struct dom_node *)doc);
+	dom_node_unref((struct dom_node *)doc);
+	dom_hubbub_parser_destroy(parser);
+	return 1;
+}
+
 /* exported interface documented in js.h */
 nserror js_newthread(jsheap *heap, void *win_priv, void *doc_priv, jsthread **thread)
 {
@@ -699,6 +763,12 @@ nserror js_newthread(jsheap *heap, void *win_priv, void *doc_priv, jsthread **th
 	duk_put_prop_string(CTX, -2, "prototype");
 	duk_put_global_string(CTX, "XMLHttpRequest");
 	duk_pop_2(CTX);
+	duk_push_c_function(CTX, dukky_domparser_constructor, DUK_VARARGS);
+	duk_push_object(CTX);
+	duk_push_c_function(CTX, dukky_domparser_parse_from_string, DUK_VARARGS);
+	duk_put_prop_string(CTX, -2, "parseFromString");
+	duk_put_prop_string(CTX, -2, "prototype");
+	duk_put_global_string(CTX, "DOMParser");
 
 	/* Now we need to prepare our node mapping table */
 	duk_push_object(CTX);
