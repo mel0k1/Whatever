@@ -21,10 +21,30 @@ serious, quiet interface with nothing to distract.
 
 ## Status
 
-Early development. The tree is the upstream NetSurf import
-(upstream commit `a471a0d`) with the first interface changes applied.
-The upstream multi-frontend layout is kept: GTK3, Windows, BeOS/Haiku,
-framebuffer, Qt and RISC OS.
+Fork of upstream NetSurf (`a471a0d`). The upstream multi-frontend
+layout is kept: GTK3, Windows, BeOS/Haiku, framebuffer, Qt and
+RISC OS.
+
+Works:
+
+- GTK3 frontend with light and dark monochrome themes
+  (`WHATEVER_THEME=dark`).
+- Bundled monochrome icon theme for the GTK toolbar and menus.
+- Monochrome browser assets: toolbar, throbber, banner, page-info,
+  installer graphics.
+- Monochrome internal pages: fetch errors, certificate and privacy
+  prompts.
+- Windows cross-build in CI: a flat zip and an NSIS installer.
+- GTK3 Linux build in CI.
+
+Does not work yet:
+
+- JavaScript is minimal (duktape); heavy modern sites may break.
+- No audio or video playback.
+- Binaries are not Authenticode-signed: expect a SmartScreen
+  warning. Build provenance is published as GitHub artifact
+  attestations (`gh attestation verify`).
+- The Windows frontend needs broader testing on real hardware.
 
 ## Design rules
 
@@ -60,19 +80,14 @@ Upstream build documentation: [docs/building-GTK.md](docs/building-GTK.md).
     make TARGET=gtk3 -j$(nproc)
 
 CI also cross-builds the Windows frontend with mingw64. The `windows`
-workflow publishes `whatever-win64` artifacts; treat them as experimental
-until tested on hardware.
+workflow publishes `whatever-win64` (a flat zip with the exe,
+resources and runtime DLLs) and `whatever-win64-setup.exe` (NSIS
+installer).
 
 ## Roadmap
 
-- Test and package the Windows build.
-- Replace installer banner and throbber assets.
-
-## Contributing
-
-- Commits are short and single-topic: `topic: what changed`.
-- No comments in code except where the logic is genuinely non-obvious,
-  and then one short line.
+- Test the Windows build on real hardware.
+- Extend the monochrome theme to the Qt, BeOS and RISC OS frontends.
 
 ## License
 
@@ -95,6 +110,29 @@ BeOS/Haiku, framebuffer, Qt и RISC OS.
 Дизайн касается только оболочки браузера. Сторонние сайты всегда
 рендерятся со своими стилями.
 
+## Статус
+
+**Работает:**
+
+- GTK3-фронтенд со светлой и тёмной монохромными темами
+  (`WHATEVER_THEME=dark`).
+- Собственная монохромная тема иконок для тулбара и меню GTK.
+- Монохромные ассеты браузера: тулбар, throbber, баннер,
+  page-info, установщик.
+- Монохромные внутренние страницы: ошибки загрузки,
+  сертификат, приватность.
+- Windows-сборка в CI: плоский zip и NSIS-установщик.
+- Linux GTK3-сборка в CI.
+
+**Пока нет:**
+
+- Полноценного JavaScript (duktape минимален, современные
+  сайты могут ломаться).
+- Воспроизведения аудио и видео.
+- Подписи Authenticode — только GitHub artifact attestations
+  и предупреждение SmartScreen при первом запуске.
+- Обкатки Windows-фронтенда на реальном железе.
+
 ## Темы
 
 По умолчанию светлая ч/б тема. Тёмная:
@@ -109,14 +147,8 @@ BeOS/Haiku, framebuffer, Qt и RISC OS.
 
     make TARGET=gtk3 -j$(nproc)
 
-CI также кросс-собирает Windows-версию через mingw64; артефакты
-`whatever-win64` считаются экспериментальными.
-
-## Правила проекта
-
-- Коммиты короткие и односложные: `topic: что изменилось`.
-- Без комментариев в коде, кроме действительно неочевидных мест — и там
-  одна короткая строка.
+CI также кросс-собирает Windows-версию через mingw64. Публикуются `whatever-win64` (плоский zip с exe, ресурсами и рантайм-DLL) и
+`whatever-win64-setup.exe` (NSIS-установщик).
 
 ## Лицензия
 
