@@ -174,7 +174,7 @@ static HWND nsws_window_create(HINSTANCE hInstance, struct gui_window *gw)
 
 	hwnd = CreateWindowExW(0,
 			       windowclassname_main,
-			       L"NetSurf Browser",
+			       L"Whatever",
 			       WS_OVERLAPPEDWINDOW |
 			       WS_CLIPCHILDREN |
 			       WS_CLIPSIBLINGS |
@@ -780,7 +780,7 @@ nsws_window_create_statusbar(HINSTANCE hInstance,
 			      hInstance,
 			      NULL);
 	if (hwnd != NULL) {
-		SendMessage(hwnd, SB_SETTEXT, 0, (LPARAM)"NetSurf");
+		SendMessage(hwnd, SB_SETTEXT, 0, (LPARAM)"Whatever");
 	}
 	return hwnd;
 }
@@ -1667,7 +1667,7 @@ static void win32_window_set_title(struct gui_window *w, const char *title)
 	}
 
 	NSLOG(netsurf, INFO, "%p, title %s", w, title);
-	fulltitle = malloc(strlen(title) + SLEN("  -  NetSurf") + 1);
+	fulltitle = malloc(strlen(title) + SLEN("  -  Whatever") + 1);
 	if (fulltitle == NULL) {
 		NSLOG(netsurf, ERROR, "%s",
 		      messages_get_errorcode(NSERROR_NOMEM));
@@ -1675,7 +1675,7 @@ static void win32_window_set_title(struct gui_window *w, const char *title)
 	}
 
 	strcpy(fulltitle, title);
-	strcat(fulltitle, "  -  NetSurf");
+	strcat(fulltitle, "  -  Whatever");
 
 	wlen = MultiByteToWideChar(CP_UTF8, 0, fulltitle, -1, NULL, 0);
 	if (wlen == 0) {

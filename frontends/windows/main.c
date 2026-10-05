@@ -91,7 +91,7 @@ static int get_screen_dpi(void)
 static nserror get_config_home(char **config_home_out)
 {
 	TCHAR adPath[MAX_PATH]; /* appdata path */
-	char nsdir[] = "NetSurf";
+	char nsdir[] = "Whatever";
 	HRESULT hres;
 
 	hres = SHGetFolderPath(NULL,
@@ -402,7 +402,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hLastInstance, LPSTR lpcli, int ncmd)
 
 	ret = netsurf_register(&win32_table);
 	if (ret != NSERROR_OK) {
-		die("NetSurf operation table registration failed");
+		die("Whatever operation table registration failed");
 	}
 
 	/* Save the application-instance handle. */

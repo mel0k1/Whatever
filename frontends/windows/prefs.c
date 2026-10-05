@@ -722,7 +722,7 @@ void nsws_prefs_dialog_init(HINSTANCE hinst, HWND parent)
 	psh.hwndParent = parent;
 	psh.hInstance = hinst;
 	psh.pszIcon = MAKEINTRESOURCE(IDR_NETSURF_ICON);
-	psh.pszCaption = (LPSTR) "NetSurf Options";
+	psh.pszCaption = (LPSTR) "Whatever Options";
 	psh.nPages = sizeof(psp) / sizeof(PROPSHEETPAGE);
 	psh.nStartPage = 0;
 	psh.ppsp = (LPCPROPSHEETPAGE) &psp;
