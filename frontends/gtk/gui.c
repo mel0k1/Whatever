@@ -761,6 +761,10 @@ static nserror create_cache_home(char **cache_home_out)
 static void nsgtk_apply_theme(void)
 {
 	const char *path;
+	const char *slash;
+	const char *subdir;
+	char *iconpath;
+	int len;
 	GtkCssProvider *provider;
 	GError *error = NULL;
 	nserror res;
@@ -768,11 +772,26 @@ static void nsgtk_apply_theme(void)
 	if (getenv("WHATEVER_THEME") != NULL &&
 	    strcmp(getenv("WHATEVER_THEME"), "dark") == 0) {
 		res = nsgtk_path_from_resname("whatever-dark.css", &path);
+		subdir = "mono-dark";
 	} else {
 		res = nsgtk_path_from_resname("whatever.css", &path);
+		subdir = "mono";
 	}
 	if (res != NSERROR_OK) {
 		return;
+	}
+
+	slash = strrchr(path, '/');
+	if (slash != NULL) {
+		len = slash - path;
+		iconpath = malloc(len + 48);
+		if (iconpath != NULL) {
+			snprintf(iconpath, len + 48, "%.*sicons/%s",
+				 len, path, subdir);
+			gtk_icon_theme_prepend_search_path(
+				gtk_icon_theme_get_default(), iconpath);
+			free(iconpath);
+		}
 	}
 
 	provider = gtk_css_provider_new();

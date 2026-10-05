@@ -211,6 +211,9 @@ install-gtk:
 	$(Q)install $(EXETARGET) $(DESTDIR)$(NETSURF_GTK_BIN)netsurf-gtk$(SUBTARGET)
 	$(Q)$(MKDIR) -p $(NSGTK_RESOURCES_DESTDIR)/icons
 	$(Q)install -m 0644 $(NSGTK_RESOURCES_DIR)/icons/*.png $(NSGTK_RESOURCES_DESTDIR)/icons
+	$(Q)$(MKDIR) -p $(NSGTK_RESOURCES_DESTDIR)/icons/mono $(NSGTK_RESOURCES_DESTDIR)/icons/mono-dark
+	$(Q)cp -R $(NSGTK_RESOURCES_DIR)/icons/mono/. $(NSGTK_RESOURCES_DESTDIR)/icons/mono/
+	$(Q)cp -R $(NSGTK_RESOURCES_DIR)/icons/mono-dark/. $(NSGTK_RESOURCES_DESTDIR)/icons/mono-dark/
 	$(Q)$(MKDIR) -p $(NSGTK_RESOURCES_DESTDIR)/throbber
 	$(Q)install -m 0644 $(NSGTK_RESOURCES_DIR)/throbber/*.png $(NSGTK_RESOURCES_DESTDIR)/throbber
 	$(Q)tar -c -h -C $(NSGTK_RESOURCES_DIR) -f - $(GTK_TRANSLATIONS_HTML) | tar -xv -C $(NSGTK_RESOURCES_DESTDIR) -f -
