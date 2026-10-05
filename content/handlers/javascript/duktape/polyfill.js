@@ -962,16 +962,75 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
     }
 
     if (typeof window !== 'undefined' && window !== null) {
-        if (typeof window.getComputedStyle !== 'function') {
-            window.getComputedStyle = function (el) {
-                if (el === null || el === undefined) {
-                    return null;
+        if (typeof window.btoa !== 'function') {
+            var B64A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+            var B64T = {};
+            var b64i;
+            for (b64i = 0; b64i < 64; b64i++) {
+                B64T[B64A.charAt(b64i)] = b64i;
+            }
+            var b64err = function () {
+                var e = new Error('InvalidCharacterError');
+                e.name = 'InvalidCharacterError';
+                return e;
+            };
+            window.btoa = function (s) {
+                s = String(s);
+                var n = s.length;
+                var i;
+                for (i = 0; i < n; i++) {
+                    if (s.charCodeAt(i) > 255) {
+                        throw b64err();
+                    }
                 }
-                var st = el.style;
-                if (st === null || st === undefined) {
-                    st = {};
+                var r = [];
+                for (i = 0; i < n; i += 3) {
+                    var b0 = s.charCodeAt(i);
+                    var has1 = i + 1 < n;
+                    var has2 = i + 2 < n;
+                    var b1 = has1 ? s.charCodeAt(i + 1) : 0;
+                    var b2 = has2 ? s.charCodeAt(i + 2) : 0;
+                    r.push(B64A.charAt(b0 >> 2));
+                    r.push(B64A.charAt(((b0 & 3) << 4) | (b1 >> 4)));
+                    r.push(has1 ? B64A.charAt(((b1 & 15) << 2) | (b2 >> 6)) : '=');
+                    r.push(has2 ? B64A.charAt(b2 & 63) : '=');
                 }
-                return st;
+                return r.join('');
+            };
+            window.atob = function (s) {
+                s = String(s).replace(/[ \t\n\f\r]/g, '');
+                var n = s.length;
+                if (n % 4 === 1 || /[^A-Za-z0-9+\/=]/.test(s)) {
+                    throw b64err();
+                }
+                var pad = 0;
+                if (n > 0 && s.charAt(n - 1) === '=') {
+                    pad++;
+                }
+                if (n > 1 && s.charAt(n - 2) === '=') {
+                    pad++;
+                }
+                var eq = s.indexOf('=');
+                if (eq !== -1 && eq !== n - pad) {
+                    throw b64err();
+                }
+                var out = [];
+                var lim = n - pad;
+                var i;
+                for (i = 0; i < lim; i += 4) {
+                    var d0 = B64T[s.charAt(i)];
+                    var d1 = B64T[s.charAt(i + 1)];
+                    var d2 = i + 2 < lim ? B64T[s.charAt(i + 2)] : 0;
+                    var d3 = i + 3 < lim ? B64T[s.charAt(i + 3)] : 0;
+                    out.push(String.fromCharCode((d0 << 2) | (d1 >> 4)));
+                    if (i + 2 < lim) {
+                        out.push(String.fromCharCode(((d1 & 15) << 4) | (d2 >> 2)));
+                    }
+                    if (i + 3 < lim) {
+                        out.push(String.fromCharCode(((d2 & 3) << 6) | d3));
+                    }
+                }
+                return out.join('');
             };
         }
         if (typeof window.matchMedia !== 'function') {
