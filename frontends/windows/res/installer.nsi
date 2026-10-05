@@ -4,36 +4,45 @@
 # show up in a few places.
 # All the other settings can be tweaked by editing the !defines at the top of this script
 
-!define APPNAME "NetSurf"
-!define COMPANYNAME "NetSurf"
-!define DESCRIPTION "Web Browser"
+!define APPNAME "Whatever"
+!define COMPANYNAME "Whatever"
+!define DESCRIPTION "Minimalist web browser"
 
 # The version values must be simple integers
 !ifndef VERSIONMAJOR
   !define VERSIONMAJOR 3
 !endif
 !ifndef VERSIONMINOR
-  !define VERSIONMINOR 11
+  !define VERSIONMINOR 12
 !endif
 !ifndef VERSIONBUILD
   !define VERSIONBUILD 0
 !endif
 
 # These will be displayed by the "Click here for support information" link in "Add/Remove Programs"
-!define HELPURL "https://www.netsurf-browser.org/" # "Support Information" link
-!define UPDATEURL "https://www.netsurf-browser.org/" # "Product Updates" link
-!define ABOUTURL "https://www.netsurf-browser.org/" # "Publisher" link
+!define HELPURL "https://github.com/mel0k1/Whatever/" # "Support Information" link
+!define UPDATEURL "https://github.com/mel0k1/Whatever/" # "Product Updates" link
+!define ABOUTURL "https://github.com/mel0k1/Whatever/" # "Publisher" link
 # This is the size (in kB) of all the files copied into "Program Files"
-!define INSTALLSIZE 9000
+!define INSTALLSIZE 12000
 
 # output filename
 !ifndef OUTFNAME
-  !define OUTFNAME "netsurf-installer.exe"
+  !define OUTFNAME "whatever-installer.exe"
 !endif
 
 # path to resources
 !ifndef RESDIR
   !define RESDIR "frontends/windows/res"
+!endif
+!ifndef LICFILE
+  !define LICFILE "COPYING"
+!endif
+!ifndef EXEFILE
+  !define EXEFILE "NetSurf.exe"
+!endif
+!ifndef OBJROOT
+  !define OBJROOT "build/x86_64-w64-mingw32-windows"
 !endif
 
 
@@ -42,10 +51,10 @@ RequestExecutionLevel admin ;Require admin rights on NT6+ (When UAC is turned on
 InstallDir "$PROGRAMFILES\${COMPANYNAME}\${APPNAME}"
  
 # rtf or txt file - remember if it is txt, it must be in the DOS text format (\r\n)
-LicenseData "COPYING"
+LicenseData "${LICFILE}"
 # This will be in the installer/uninstaller's title bar
-Name "${COMPANYNAME} - ${APPNAME}"
-Icon "${RESDIR}\NetSurf.ico"
+Name "${APPNAME}"
+Icon "${RESDIR}/NetSurf.ico"
 outFile "${OUTFNAME}"
 BrandingText "${COMPANYNAME}"
  
@@ -78,17 +87,17 @@ section "install"
 	setOutPath $INSTDIR
 
 	# Files added here should be removed by the uninstaller section
-	file "NetSurf.exe"
-	file /oname=NetSurf.ico "${RESDIR}\NetSurf.ico"
-	file /oname=default.css "${RESDIR}\default.css"
-	file /oname=internal.css "${RESDIR}\internal.css"
-	file /oname=adblock.css "${RESDIR}\adblock.css"
-	file /oname=welcome.html "${RESDIR}\welcome.html"
-	file /oname=credits.html "${RESDIR}\credits.html"
-	file /oname=licence.html "${RESDIR}\licence.html"
-	file /oname=netsurf.png "${RESDIR}\netsurf.png"
-	file /oname=messages "${OBJROOT}\messages-en"
-	file /oname=ca-bundle.crt "${RESDIR}\ca-bundle.crt"
+	file "${EXEFILE}"
+	file /oname=NetSurf.ico "${RESDIR}/NetSurf.ico"
+	file /oname=default.css "${RESDIR}/default.css"
+	file /oname=internal.css "${RESDIR}/internal.css"
+	file /oname=adblock.css "${RESDIR}/adblock.css"
+	file /oname=welcome.html "${RESDIR}/welcome.html"
+	file /oname=credits.html "${RESDIR}/credits.html"
+	file /oname=licence.html "${RESDIR}/licence.html"
+	file /oname=netsurf.png "${RESDIR}/netsurf.png"
+	file /oname=messages "${OBJROOT}/messages-en"
+	file /oname=ca-bundle.crt "${RESDIR}/ca-bundle.crt"
  
 	# Uninstaller - See function un.onInit and section "uninstall" for configuration
 	writeUninstaller "$INSTDIR\uninstall.exe"
