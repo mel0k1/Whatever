@@ -1027,3 +1027,413 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
         }
     }
 })();
+
+/* Network layer: Promise, fetch, Response, Headers over native XMLHttpRequest */
+(function () {
+    'use strict';
+    var w = typeof window === 'object' ? window : this;
+    if (typeof w.Promise === 'function') {
+        return;
+    }
+    var PENDING = 0, FULFILLED = 1, REJECTED = 2;
+    var micro = [];
+    var scheduled = false;
+
+    function isThenable(v) {
+        return v !== null && (typeof v === 'object' || typeof v === 'function') &&
+            typeof v.then === 'function';
+    }
+    function ensureScheduled() {
+        if (scheduled) {
+            return;
+        }
+        scheduled = true;
+        w.setTimeout(drain, 0);
+    }
+    function settle(p, s, v) {
+        if (p.__s !== PENDING) {
+            return;
+        }
+        p.__s = s;
+        p.__v = v;
+        var hs = p.__h;
+        p.__h = null;
+        for (var i = 0; i < hs.length; i++) {
+            micro.push({ p: p, h: hs[i] });
+        }
+        ensureScheduled();
+    }
+    function resolveOne(p, v) {
+        if (v === p) {
+            settle(p, REJECTED, new TypeError('Chaining cycle detected'));
+            return;
+        }
+        if (isThenable(v)) {
+            try {
+                v.then(function (vv) {
+                    resolveOne(p, vv);
+                }, function (rr) {
+                    settle(p, REJECTED, rr);
+                });
+            } catch (e) {
+                settle(p, REJECTED, e);
+            }
+            return;
+        }
+        settle(p, FULFILLED, v);
+    }
+    function runJob(job) {
+        var p = job.p;
+        var h = job.h;
+        var s = p.__s;
+        var v = p.__v;
+        var cb = (s === FULFILLED) ? h.onF : h.onR;
+        if (cb === null) {
+            if (s === FULFILLED) {
+                settle(h.child, FULFILLED, v);
+            } else {
+                settle(h.child, REJECTED, v);
+            }
+            return;
+        }
+        var out;
+        try {
+            out = cb(v);
+        } catch (e) {
+            settle(h.child, REJECTED, e);
+            return;
+        }
+        resolveOne(h.child, out);
+    }
+    function drain() {
+        scheduled = false;
+        var batch = micro;
+        micro = [];
+        while (batch.length > 0) {
+            runJob(batch.shift());
+        }
+    }
+    function Promise(executor) {
+        if (!(this instanceof Promise)) {
+            throw new TypeError('Promise must be constructed with new');
+        }
+        if (typeof executor !== 'function') {
+            throw new TypeError('Promise resolver is not a function');
+        }
+        this.__s = PENDING;
+        this.__v = undefined;
+        this.__h = [];
+        var self = this;
+        function res(v) {
+            resolveOne(self, v);
+        }
+        function rej(r) {
+            settle(self, REJECTED, r);
+        }
+        try {
+            executor(res, rej);
+        } catch (e) {
+            settle(self, REJECTED, e);
+        }
+    }
+    Promise.prototype.then = function (onF, onR) {
+        var child = new Promise(function () {
+        });
+        var h = {
+            onF: typeof onF === 'function' ? onF : null,
+            onR: typeof onR === 'function' ? onR : null,
+            child: child
+        };
+        if (this.__s === PENDING) {
+            this.__h.push(h);
+        } else {
+            micro.push({ p: this, h: h });
+            ensureScheduled();
+        }
+        return child;
+    };
+    Promise.prototype.catch = function (onR) {
+        return this.then(null, onR);
+    };
+    Promise.prototype.finally = function (cb) {
+        var fn = typeof cb === 'function' ? cb : null;
+        return this.then(function (v) {
+            if (fn) {
+                fn();
+            }
+            return v;
+        }, function (e) {
+            if (fn) {
+                fn();
+            }
+            throw e;
+        });
+    };
+    Promise.resolve = function (v) {
+        if (v instanceof Promise) {
+            return v;
+        }
+        return new Promise(function (res) {
+            res(v);
+        });
+    };
+    Promise.reject = function (r) {
+        return new Promise(function (res, rej) {
+            rej(r);
+        });
+    };
+    Promise.all = function (list) {
+        return new Promise(function (resolve, reject) {
+            var n = list.length;
+            var out = new Array(n);
+            var left = n;
+            if (n === 0) {
+                resolve(out);
+                return;
+            }
+            for (var i = 0; i < n; i++) {
+                (function (i) {
+                    Promise.resolve(list[i]).then(function (v) {
+                        out[i] = v;
+                        left--;
+                        if (left === 0) {
+                            resolve(out);
+                        }
+                    }, reject);
+                })(i);
+            }
+        });
+    };
+    Promise.race = function (list) {
+        return new Promise(function (resolve, reject) {
+            for (var i = 0; i < list.length; i++) {
+                Promise.resolve(list[i]).then(resolve, reject);
+            }
+        });
+    };
+    w.Promise = Promise;
+    w.__drainTasks = drain;
+
+    function Headers(init) {
+        this.__h = {};
+        if (init) {
+            if (typeof init === 'object') {
+                for (var k in init) {
+                    if (Object.prototype.hasOwnProperty.call(init, k)) {
+                        this.set(k, init[k]);
+                    }
+                }
+            }
+        }
+    }
+    Headers.prototype.set = function (k, v) {
+        this.__h[String(k).toLowerCase()] = String(v);
+    };
+    Headers.prototype.get = function (k) {
+        var x = this.__h[String(k).toLowerCase()];
+        return x === undefined ? null : x;
+    };
+    Headers.prototype.has = function (k) {
+        return Object.prototype.hasOwnProperty.call(this.__h, String(k).toLowerCase());
+    };
+    Headers.prototype.forEach = function (cb, thisArg) {
+        for (var k in this.__h) {
+            if (Object.prototype.hasOwnProperty.call(this.__h, k)) {
+                cb.call(thisArg, this.__h[k], k, this);
+            }
+        }
+    };
+    w.Headers = Headers;
+
+    function Response(xhr) {
+        this.status = xhr.status;
+        this.statusText = xhr.statusText;
+        this.ok = xhr.status >= 200 && xhr.status < 300;
+        this.url = xhr.responseURL;
+        this.type = 'basic';
+        this.bodyUsed = false;
+        this.headers = new Headers();
+        var raw = xhr.getAllResponseHeaders() || '';
+        var lines = raw.split('\r\n');
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i];
+            var c = line.indexOf(':');
+            if (c > 0) {
+                var k = line.substring(0, c).toLowerCase();
+                var v = line.substring(c + 1);
+                this.headers.set(k.trim(), v.trim());
+            }
+        }
+        this.__text = xhr.responseText;
+    }
+    Response.prototype.text = function () {
+        this.bodyUsed = true;
+        return Promise.resolve(this.__text);
+    };
+    Response.prototype.json = function () {
+        var t = this.__text;
+        this.bodyUsed = true;
+        return new Promise(function (resolve, reject) {
+            var v = JSON.parse(t);
+            resolve(v);
+        });
+    };
+    Response.prototype.arrayBuffer = function () {
+        this.bodyUsed = true;
+        var s = this.__text;
+        var n = s.length;
+        var u = new Uint8Array(n);
+        for (var i = 0; i < n; i++) {
+            u[i] = s.charCodeAt(i) & 0xff;
+        }
+        return Promise.resolve(u.buffer);
+    };
+    w.Response = Response;
+
+    function fetch(input, init) {
+        var url;
+        var opts = init || {};
+        if (input && typeof input === 'object' && typeof input.url === 'string') {
+            url = input.url;
+            if (!init) {
+                opts = { method: input.method, headers: input.headers, body: input.body };
+            }
+        } else {
+            url = String(input);
+        }
+        var method = String(opts.method || 'GET').toUpperCase();
+        var hdict = {};
+        if (opts.headers) {
+            if (opts.headers instanceof Headers) {
+                opts.headers.forEach(function (v, k) {
+                    hdict[k] = v;
+                });
+            } else if (typeof opts.headers === 'object') {
+                for (var k in opts.headers) {
+                    if (Object.prototype.hasOwnProperty.call(opts.headers, k)) {
+                        hdict[String(k).toLowerCase()] = String(opts.headers[k]);
+                    }
+                }
+            }
+        }
+        var body = opts.body;
+        if (body !== undefined && body !== null && typeof body !== 'string') {
+            body = String(body);
+        }
+        return new Promise(function (resolve, reject) {
+            var x = new XMLHttpRequest();
+            try {
+                x.open(method, url, true);
+            } catch (e) {
+                reject(e);
+                return;
+            }
+            for (var hk in hdict) {
+                if (Object.prototype.hasOwnProperty.call(hdict, hk)) {
+                    try {
+                        x.setRequestHeader(hk, hdict[hk]);
+                    } catch (e2) {}
+                }
+            }
+            x.onreadystatechange = function () {
+                if (x.readyState !== 4) {
+                    return;
+                }
+                if (x.status === 0) {
+                    reject(new TypeError('Network request failed'));
+                    return;
+                }
+                resolve(new Response(x));
+            };
+            x.onerror = function () {
+                reject(new TypeError('Network request failed'));
+            };
+            try {
+                if (method === 'GET' || method === 'HEAD') {
+                    x.send();
+                } else {
+                    x.send(body === undefined || body === null ? '' : body);
+                }
+            } catch (e3) {
+                reject(e3);
+            }
+        });
+    }
+    w.fetch = fetch;
+
+    var X = XMLHttpRequest.prototype;
+    X.__xhrDispatch = function (x, kind, loaded, total) {
+        var ev = {
+            type: kind,
+            target: x,
+            currentTarget: x,
+            srcElement: x,
+            loaded: loaded || 0,
+            total: total || 0,
+            lengthComputable: (total || 0) > 0,
+            timeStamp: 0,
+            bubbles: false,
+            cancelable: false,
+            defaultPrevented: false,
+            preventDefault: function () {},
+            stopPropagation: function () {},
+            stopImmediatePropagation: function () {}
+        };
+        var ls = x.__ls;
+        if (ls && ls[kind]) {
+            var arr = ls[kind].slice();
+            for (var i = 0; i < arr.length; i++) {
+                if (typeof arr[i] === 'function') {
+                    try {
+                        arr[i].call(x, ev);
+                    } catch (e) {}
+                }
+            }
+        }
+        var h = x['on' + kind];
+        if (typeof h === 'function') {
+            try {
+                h.call(x, ev);
+            } catch (e2) {}
+        }
+        return;
+    };
+    if (typeof X.addEventListener !== 'function') {
+        X.addEventListener = function (type, fn) {
+            if (typeof fn !== 'function') {
+                return;
+            }
+            if (!this.__ls) {
+                this.__ls = {};
+            }
+            if (!this.__ls[type]) {
+                this.__ls[type] = [];
+            }
+            var a = this.__ls[type];
+            for (var i = 0; i < a.length; i++) {
+                if (a[i] === fn) {
+                    return;
+                }
+            }
+            a.push(fn);
+        };
+        X.removeEventListener = function (type, fn) {
+            var a = this.__ls && this.__ls[type];
+            if (!a) {
+                return;
+            }
+            for (var i = 0; i < a.length; i++) {
+                if (a[i] === fn) {
+                    a.splice(i, 1);
+                    return;
+                }
+            }
+        };
+        X.dispatchEvent = function (ev) {
+            if (ev && ev.type) {
+                this.__xhrDispatch(this, ev.type, 0, 0);
+            }
+            return true;
+        };
+    }
+}());
