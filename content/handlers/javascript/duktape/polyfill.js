@@ -934,6 +934,11 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
             return toList(collectClass(root, classTokens(names)));
         });
     }
+    if (typeof __nsElementFromPoint === 'function' && docProto.elementFromPoint === undefined) {
+        defineValue(docProto, 'elementFromPoint', function (x, y) {
+            return __nsElementFromPoint(toInt(x), toInt(y));
+        });
+    }
     if (elementProto.querySelector === undefined) {
         defineValue(elementProto, 'querySelector', function (sel) {
             var r = queryAll(this, parseSelector(sel), true);
@@ -987,8 +992,33 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
             return this.nodeName;
         });
     }
-    if (elementProto.scrollIntoView === undefined) {
-        defineValue(elementProto, 'scrollIntoView', function () {
+    if (elementProto.scrollIntoView === undefined || typeof __nsScrollTo === 'function') {
+        defineValue(elementProto, 'scrollIntoView', function (arg) {
+            if (typeof __nsScrollTo !== 'function' || typeof __nsRect !== 'function') {
+                return;
+            }
+            var r = __nsRect(this);
+            if (r === null || r === undefined) {
+                return;
+            }
+            var mode = 'start';
+            if (typeof arg === 'string') {
+                mode = arg;
+            } else if (arg !== null && arg !== undefined && typeof arg === 'object') {
+                mode = arg.block === undefined ? 'start' : arg.block;
+            }
+            var y = r.top;
+            if (mode === 'center') {
+                y = r.top - (window.innerHeight - r.height) / 2;
+            } else if (mode === 'end') {
+                y = r.bottom - window.innerHeight;
+            } else if (mode === 'nearest') {
+                if (r.top >= 0 && r.bottom <= window.innerHeight) {
+                    return;
+                }
+                y = r.top < 0 ? r.top : r.bottom - window.innerHeight;
+            }
+            __nsScrollTo(window.scrollX + r.left, window.scrollY + y);
         });
     }
 
@@ -1455,6 +1485,23 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
         if (typeof window.blur !== 'function') {
             window.blur = function () {
             };
+        }
+        if (typeof __nsScrollTo === 'function') {
+            defineValue(window, 'scrollTo', function (x, y) {
+                if (x !== null && x !== undefined && typeof x === 'object') {
+                    __nsScrollTo(x.left === undefined ? toInt(x.x) : toInt(x.left), x.top === undefined ? toInt(x.y) : toInt(x.top));
+                    return;
+                }
+                __nsScrollTo(toInt(x), toInt(y));
+            });
+            defineValue(window, 'scroll', window.scrollTo);
+            defineValue(window, 'scrollBy', function (x, y) {
+                if (x !== null && x !== undefined && typeof x === 'object') {
+                    __nsScrollTo(window.scrollX + toInt(x.left === undefined ? x.x : x.left), window.scrollY + toInt(x.top === undefined ? x.y : x.top));
+                    return;
+                }
+                __nsScrollTo(window.scrollX + toInt(x), window.scrollY + toInt(y));
+            });
         }
 
         if (typeof __nsMetrics === 'function') {

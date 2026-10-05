@@ -31,6 +31,7 @@ class Window {
 #include "css/utils.h"
 #include "desktop/browser_private.h"
 #include "content/handlers/html/box.h"
+#include "content/handlers/javascript/duktape/dukky.h"
 #include "content/handlers/html/box_inspect.h"
 #include "netsurf/types.h"
 #include "desktop/browser_history.h"
@@ -788,6 +789,90 @@ static duk_ret_t dukky_ns_history_go(duk_context *ctx)
 	return 0;
 }
 
+static duk_ret_t dukky_ns_scroll_to(duk_context *ctx)
+{
+	window_private_t *priv = dukky_window_priv(ctx);
+	struct rect r;
+	int x = 0;
+	int y = 0;
+	if (duk_get_top(ctx) > 0) {
+		x = duk_to_int(ctx, 0);
+	}
+	if (duk_get_top(ctx) > 1) {
+		y = duk_to_int(ctx, 1);
+	}
+	if (x < 0) {
+		x = 0;
+	}
+	if (y < 0) {
+		y = 0;
+	}
+	if (priv == NULL || priv->win == NULL || priv->win->window == NULL) {
+		return 0;
+	}
+	r.x0 = x;
+	r.y0 = y;
+	r.x1 = x;
+	r.y1 = y;
+	guit->window->set_scroll(priv->win->window, &r);
+	return 0;
+}
+
+static duk_ret_t dukky_ns_element_from_point(duk_context *ctx)
+{
+	window_private_t *priv = dukky_window_priv(ctx);
+	struct html_content *htmlc;
+	struct box *box;
+	struct box *next;
+	dom_node *hit = NULL;
+	int x = 0;
+	int y = 0;
+	int sx = 0;
+	int sy = 0;
+	int bx = 0;
+	int by = 0;
+	if (priv == NULL || priv->win == NULL) {
+		return 0;
+	}
+	htmlc = priv->htmlc;
+	if (htmlc == NULL || htmlc->layout == NULL) {
+		return 0;
+	}
+	if (duk_get_top(ctx) > 0) {
+		x = duk_to_int(ctx, 0);
+	}
+	if (duk_get_top(ctx) > 1) {
+		y = duk_to_int(ctx, 1);
+	}
+	if (priv->win->window != NULL) {
+		guit->window->get_scroll(priv->win->window, &sx, &sy);
+	}
+	x += sx;
+	y += sy;
+	box = htmlc->layout;
+	bx = box->margin[LEFT];
+	by = box->margin[TOP];
+	hit = box->node;
+	do {
+		if (box->node != NULL && box->type != BOX_TEXT) {
+			if (box->style == NULL ||
+			    css_computed_visibility(box->style) !=
+			    CSS_VISIBILITY_HIDDEN) {
+				hit = box->node;
+			}
+		}
+		next = box_at_point(&htmlc->unit_len_ctx, box, x, y, &bx, &by);
+		box = next;
+	} while (box != NULL);
+	if (hit == NULL) {
+		return 0;
+	}
+	if (!dukky_push_node(ctx, hit)) {
+		return 0;
+	}
+	return 1;
+}
+
 void dukky_window_register_api(duk_context *ctx)
 {
 	duk_push_c_function(ctx, dukky_ns_metrics, 0);
@@ -800,6 +885,10 @@ void dukky_window_register_api(duk_context *ctx)
 	duk_put_global_string(ctx, "__nsStorageRead");
 	duk_push_c_function(ctx, dukky_ns_storage_write, 2);
 	duk_put_global_string(ctx, "__nsStorageWrite");
+	duk_push_c_function(ctx, dukky_ns_scroll_to, 2);
+	duk_put_global_string(ctx, "__nsScrollTo");
+	duk_push_c_function(ctx, dukky_ns_element_from_point, 2);
+	duk_put_global_string(ctx, "__nsElementFromPoint");
 }
 
 %};
