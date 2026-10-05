@@ -669,9 +669,9 @@ static duk_ret_t dukky_domparser_constructor(duk_context *ctx)
 
 static void dukky_domparser_msg(uint32_t severity, void *ctx, const char *msg, ...)
 {
-	UNUSED(severity);
-	UNUSED(ctx);
-	UNUSED(msg);
+	(void)severity;
+	(void)ctx;
+	(void)msg;
 }
 
 static duk_ret_t dukky_domparser_parse_xml(duk_context *ctx, const char *xml,
