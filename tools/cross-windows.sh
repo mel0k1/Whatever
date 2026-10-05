@@ -188,8 +188,12 @@ fetch curl-8.11.1 https://curl.se/download/curl-8.11.1.tar.gz
 autoconf_lib curl-8.11.1 --enable-static --with-schannel --without-openssl \
     --without-gnutls --without-mbedtls --without-wolfssl --without-libpsl \
     --without-brotli --without-zstd --without-libidn2 --without-nghttp2 \
-    --without-librtmp --without-libssh2 --without-zlib --disable-ldap \
+    --without-librtmp --without-libssh2 --with-zlib="$PREFIX" --disable-ldap \
     --disable-ldaps --disable-manual CPPFLAGS="-I$PREFIX/include" LDFLAGS="-L$PREFIX/lib"
+
+if ! grep -q -- '-lz' "$PREFIX/lib/pkgconfig/libcurl.pc"; then
+    sed -i 's/^Libs: \(.*\)$/Libs: \1 -lz/' "$PREFIX/lib/pkgconfig/libcurl.pc"
+fi
 
 make -j"$JOBS" TARGET=windows PREFIX="$PREFIX" HOST="$CROSS" \
     CC="$CROSS-gcc" CXX="$CROSS-g++" AR="$CROSS-ar" RANLIB="$CROSS-ranlib" \
