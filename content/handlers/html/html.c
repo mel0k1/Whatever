@@ -893,6 +893,14 @@ html_begin_conversion(html_content *htmlc)
 
 	/* complete script execution, including deferred scripts */
 	html_script_exec(htmlc, true);
+	if (htmlc->jsthread != NULL) {
+		dom_string *dcl = NULL;
+		if (dom_string_create((const uint8_t *)"DOMContentLoaded", 16, &dcl) ==
+		    DOM_NO_ERR && dcl != NULL) {
+			fire_generic_dom_event(dcl, htmlc->document, true, false);
+			dom_string_unref(dcl);
+		}
+	}
 
 	/* fire a simple event that bubbles named DOMContentLoaded at
 	 * the Document.
@@ -1100,6 +1108,32 @@ static void html_reformat(struct content *c, int width, int height)
 	c->reformat_time = ms_after + ms_interval;
 }
 
+static void html_js_reformat_cb(void *p)
+{
+	html_content *htmlc = (html_content *)p;
+	htmlc->js_reformat_pending = false;
+	if (htmlc->base.status == CONTENT_STATUS_READY ||
+	    htmlc->base.status == CONTENT_STATUS_DONE) {
+		content__reformat(&htmlc->base, false,
+				  htmlc->base.available_width,
+				  htmlc->base.available_height);
+	}
+}
+
+void html_schedule_reformat(html_content *htmlc)
+{
+	if (htmlc->js_reformat_pending) {
+		return;
+	}
+	if (htmlc->base.status != CONTENT_STATUS_READY &&
+	    htmlc->base.status != CONTENT_STATUS_DONE) {
+		return;
+	}
+	htmlc->js_reformat_pending = true;
+	guit->misc->schedule(50, html_js_reformat_cb, htmlc);
+}
+
+
 
 /**
  * Redraw a box.
@@ -1212,6 +1246,8 @@ static void html_destroy(struct content *c)
 			NSLOG(netsurf, CRITICAL, "WARNING, Unable to cancel conversion context, browser may crash");
 		}
 	}
+
+	guit->misc->schedule(-1, html_js_reformat_cb, html);
 
 	selection_destroy(html->sel);
 

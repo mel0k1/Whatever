@@ -118,6 +118,8 @@ typedef struct html_content {
 	/** Whether a meta refresh has been handled */
 	bool refresh;
 
+	bool js_reformat_pending;
+
 	/** Whether a layout (reflow) is in progress */
 	bool reflowing;
 
@@ -271,6 +273,8 @@ bool html_exec(struct content *c, const char *src, size_t srclen);
  * \return NSERROR_OK error code.
  */
 nserror html_script_exec(html_content *htmlc, bool allow_defer);
+
+void html_schedule_reformat(html_content *htmlc);
 
 
 /**

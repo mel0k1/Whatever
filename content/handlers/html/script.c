@@ -98,6 +98,7 @@ nserror html_script_exec(html_content *c, bool allow_defer)
 						s->data.handle, &size );
 				script_handler(c->jsthread, data, size,
 					       nsurl_access(hlcache_handle_get_url(s->data.handle)));
+				html_schedule_reformat(c);
 				have_run_something = true;
 				/* We have to re-acquire this here since the
 				 * c->scripts array may have been reallocated
@@ -325,6 +326,7 @@ convert_script_sync_cb(hlcache_handle *script,
 			data = content_get_source_data(s->data.handle, &size );
 			script_handler(parent->jsthread, data, size,
 				       nsurl_access(hlcache_handle_get_url(s->data.handle)));
+			html_schedule_reformat(parent);
 		}
 
 		/* continue parse */
