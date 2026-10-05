@@ -36,7 +36,9 @@ Works:
   prompts.
 - Engine: dynamic JavaScript with XMLHttpRequest, fetch() and
   Promise, DOM selectors (querySelector, closest, matches), style
-  and dataset APIs, and live page reflow after DOM changes.
+  and dataset APIs, DOMParser, btoa/atob, a real getComputedStyle
+  computed by the CSS engine, and live page reflow after DOM
+  changes.
 - Windows cross-build in CI: a flat zip and an NSIS installer.
 - GTK3 Linux build in CI.
 
@@ -127,8 +129,9 @@ BeOS/Haiku, framebuffer, Qt и RISC OS.
   сертификат, приватность.
 - Движок: динамический JavaScript с XMLHttpRequest, fetch()
   и Promise, DOM-селекторы (querySelector, closest, matches),
-  API стилей и dataset, перерисовка страницы после
-  DOM-изменений.
+  API стилей и dataset, DOMParser, btoa/atob, настоящий
+  getComputedStyle на движке CSS, перерисовка страницы
+  после DOM-изменений.
 - Windows-сборка в CI: плоский zip и NSIS-установщик.
 - Linux GTK3-сборка в CI.
 
