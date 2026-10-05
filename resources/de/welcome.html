@@ -2,25 +2,14 @@
 <html>
 <head>
 <title>Welcome to Whatever</title>
-<style type="text/css">html,body{margin:0;padding:0;}body{color:#000;background:#fff;font-family:sans-serif;}a:link{text-decoration:underline;color:#000;}a:visited{text-decoration:underline;color:#000;}a:hover{text-decoration:none;background:#000;color:#fff;}a:active{text-decoration:underline;color:#000;}.banner{margin:0;padding:1.5em 0;border-bottom:1px solid #000;text-align:center;}.banner img{border:none;width:96px;height:96px;}.nslinks{display:table;width:100%;margin:0;border-spacing:0;padding:0;font-size:94%;border-bottom:1px solid #000;}.nslinks li{display:table-cell;text-align:center;padding:0.2em 0.3em 0.3em;vertical-align:middle;}.nslinks li+li{border-left:1px solid #000;}.version{padding:0;margin:1.2em auto 0;width:90%;color:#000;font-size:160%;}.intro{width:90%;margin:1em auto;color:#444;}.websearch{margin:1.5em auto;padding:1.2em 0.3em;border:1px solid #000;width:80%;text-align:center;}input[type=text]{border:1px solid #000;background:#fff;color:#000;margin:2px;}input[type=submit]{border:1px solid #000;color:#fff;background:#000;margin:2px;}.links{display:table;width:80%;margin:0 auto 3em;font-size:94%;}.links ul{display:table-cell;padding-left:2.5em;}.links ul+ul{padding-left:1em;}.footer{font-style:italic;color:#666;text-align:right;}.footer p{margin-top:1.5em;padding-top:0.4em;border-top:1px solid #000;}</style>
+<style type="text/css">html,body{margin:0;padding:0;}body{color:#000;background:#fff;font-family:sans-serif;}a:link{text-decoration:underline;color:#000;}a:visited{text-decoration:underline;color:#000;}a:hover{text-decoration:none;background:#000;color:#fff;}a:active{text-decoration:underline;color:#000;}.banner{margin:0;padding:2.5em 0 0;border:none;text-align:center;font-weight:normal;}.banner img{border:none;width:72px;height:72px;}.search{margin:2em auto 0;padding:1.4em 0.3em;border:1px solid #000;width:70%;text-align:center;}input[type=text]{border:1px solid #000;background:#fff;color:#000;margin:2px;padding:2px;}input[type=submit]{border:1px solid #000;color:#fff;background:#000;margin:2px;padding:2px 8px;}.links{display:table;width:70%;margin:2.5em auto;}.links ul{display:table-cell;padding-left:2.5em;}.links ul+ul{padding-left:1em;}.footer{color:#777;text-align:center;margin:3em 0 1.5em;font-size:94%;}.footer a:link,.footer a:visited{color:#777;text-decoration:underline;}.footer a:hover{color:#fff;background:#000;text-decoration:none;}</style>
 </head>
 
 <body>
 <h1 class="banner"><img src="about:logo" alt="Whatever"></h1>
 
-<ul class="nslinks">
-<li><a href="https://github.com/mel0k1/Whatever">Whatever on GitHub</a></li>
-<li><a href="https://www.netsurf-browser.org/">NetSurf upstream</a></li>
-<li><a href="https://www.netsurf-browser.org/documentation/">Engine documentation</a></li>
-</ul>
-
-<div class="onlycontent">
-<h2 class="version">Welcome to Whatever</h2>
-
-<p class="intro">Whatever is a minimalist web browser based on NetSurf. Flat, monochrome and quiet: two colors, square corners and a small, auditable engine. Thanks for choosing Whatever!</p>
-
 <form method="get" action="about:websearch">
-<div class="websearch">
+<div class="search">
 <input type="text" name="q" size="42" maxlength="255">
 <input type="submit" value="Web Search">
 </div>
@@ -47,8 +36,7 @@
 </div>
 
 <div class="footer">
-<p>Whatever is based on NetSurf, licensed under the GNU Public Licence version 2</p>
-</div>
+<p><a href="https://github.com/mel0k1/Whatever">Whatever on GitHub</a></p>
 </div>
 
 </body>
