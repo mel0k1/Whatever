@@ -1488,6 +1488,54 @@ method Window::getComputedStyle()
 	} else {
 		dukky_window_style_put(ctx, "text-indent", "0px");
 	}
+	css_computed_border_top_width(style, &len, &unit);
+	dukky_window_push_dim(ctx, "border-top-width", len, unit);
+	css_computed_border_right_width(style, &len, &unit);
+	dukky_window_push_dim(ctx, "border-right-width", len, unit);
+	css_computed_border_bottom_width(style, &len, &unit);
+	dukky_window_push_dim(ctx, "border-bottom-width", len, unit);
+	css_computed_border_left_width(style, &len, &unit);
+	dukky_window_push_dim(ctx, "border-left-width", len, unit);
+	if (css_computed_padding_top(style, &len, &unit) == CSS_PADDING_SET) {
+		dukky_window_push_dim(ctx, "padding-top", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "padding-top", "0px");
+	}
+	if (css_computed_padding_right(style, &len, &unit) == CSS_PADDING_SET) {
+		dukky_window_push_dim(ctx, "padding-right", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "padding-right", "0px");
+	}
+	if (css_computed_padding_bottom(style, &len, &unit) == CSS_PADDING_SET) {
+		dukky_window_push_dim(ctx, "padding-bottom", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "padding-bottom", "0px");
+	}
+	if (css_computed_padding_left(style, &len, &unit) == CSS_PADDING_SET) {
+		dukky_window_push_dim(ctx, "padding-left", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "padding-left", "0px");
+	}
+	if (css_computed_margin_top(style, &len, &unit) == CSS_MARGIN_SET) {
+		dukky_window_push_dim(ctx, "margin-top", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "margin-top", "0px");
+	}
+	if (css_computed_margin_right(style, &len, &unit) == CSS_MARGIN_SET) {
+		dukky_window_push_dim(ctx, "margin-right", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "margin-right", "0px");
+	}
+	if (css_computed_margin_bottom(style, &len, &unit) == CSS_MARGIN_SET) {
+		dukky_window_push_dim(ctx, "margin-bottom", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "margin-bottom", "0px");
+	}
+	if (css_computed_margin_left(style, &len, &unit) == CSS_MARGIN_SET) {
+		dukky_window_push_dim(ctx, "margin-left", len, unit);
+	} else {
+		dukky_window_style_put(ctx, "margin-left", "0px");
+	}
 
 	dukky_window_style_put(ctx, "display",
 			dukky_window_display_str(css_computed_display(style, root_el)));
