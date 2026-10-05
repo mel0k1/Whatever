@@ -203,6 +203,101 @@ method Document::createDocumentFragment()
 	return 1;
 %}
 
+method Document::createComment ()
+%{
+	struct dom_comment *comment = NULL;
+	dom_exception err;
+	dom_string *data;
+	duk_size_t slen;
+	const char *s;
+
+	s = duk_safe_to_lstring(ctx, 0, &slen);
+	err = dom_string_create((const uint8_t *)s, slen, &data);
+	if (err != DOM_NO_ERR) return 0;
+
+	err = dom_document_create_comment(priv->parent.node, data, &comment);
+	dom_string_unref(data);
+	if (err != DOM_NO_ERR) return 0;
+
+	dukky_push_node(ctx, (dom_node *)comment);
+	dom_node_unref((dom_node *)comment);
+
+	return 1;
+%}
+
+method Document::importNode ()
+%{
+	struct dom_node *imported = NULL;
+	struct dom_node *node = NULL;
+	dom_exception err;
+	node_private_t *np;
+	bool deep = false;
+
+	duk_get_prop_string(ctx, 0, PRIVATE_MAGIC);
+	np = (node_private_t *)duk_get_pointer(ctx, -1);
+	duk_pop(ctx);
+	if (np == NULL || np->node == NULL) {
+		return 0;
+	}
+	node = np->node;
+	if (duk_get_top(ctx) > 1) {
+		deep = duk_to_boolean(ctx, 1);
+	}
+	err = dom_document_import_node(priv->parent.node, node, deep, &imported);
+	if (err != DOM_NO_ERR || imported == NULL) {
+		return 0;
+	}
+	dukky_push_node(ctx, imported);
+	dom_node_unref(imported);
+
+	return 1;
+%}
+
+method Document::adoptNode ()
+%{
+	struct dom_node *imported = NULL;
+	struct dom_node *node = NULL;
+	struct dom_node *sparent = NULL;
+	struct dom_node *removed = NULL;
+	struct dom_document *sdoc = NULL;
+	dom_exception err;
+	node_private_t *np;
+	bool same = false;
+
+	duk_get_prop_string(ctx, 0, PRIVATE_MAGIC);
+	np = (node_private_t *)duk_get_pointer(ctx, -1);
+	duk_pop(ctx);
+	if (np == NULL || np->node == NULL) {
+		return 0;
+	}
+	node = np->node;
+	err = dom_node_get_owner_document(node, &sdoc);
+	if (err == DOM_NO_ERR && sdoc != NULL) {
+		dom_node_is_same((dom_node *)sdoc, (dom_node *)priv->parent.node, &same);
+		dom_node_unref((dom_node *)sdoc);
+	}
+	if (same) {
+		dukky_push_node(ctx, node);
+		return 1;
+	}
+	err = dom_document_import_node(priv->parent.node, node, true, &imported);
+	if (err != DOM_NO_ERR || imported == NULL) {
+		return 0;
+	}
+	err = dom_node_get_parent_node(node, &sparent);
+	if (err == DOM_NO_ERR && sparent != NULL) {
+		if (dom_node_remove_child(sparent, node, &removed) == DOM_NO_ERR &&
+				removed != NULL) {
+			dom_node_unref(removed);
+		}
+		dom_node_unref(sparent);
+	}
+	dukky_push_node(ctx, imported);
+	dom_node_unref(imported);
+
+	return 1;
+%}
+
 getter Document::head()
 %{
 	struct dom_nodelist *nodes;

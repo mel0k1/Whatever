@@ -1017,6 +1017,31 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
         });
     }
 
+    if (elementProto.outerHTML === undefined) {
+        Object.defineProperty(elementProto, 'outerHTML', {
+            get: function () {
+                var d = (this.ownerDocument || doc).createElement('div');
+                d.appendChild(this.cloneNode(true));
+                return d.innerHTML;
+            },
+            set: function (v) {
+                var p = this.parentElement || this.parentNode;
+                if (p === null || p === undefined) {
+                    return;
+                }
+                var cont = (this.ownerDocument || doc).createElement('div');
+                cont.innerHTML = v === null || v === undefined ? '' : String(v);
+                var nx = this.nextSibling;
+                var c;
+                while ((c = cont.firstChild) !== null && c !== undefined) {
+                    p.insertBefore(c, nx);
+                }
+                p.removeChild(this);
+            },
+            configurable: true
+        });
+    }
+
     function camelToKebab(k) {
         return String(k).replace(/[A-Z]/g, function (c) {
             return '-' + c.toLowerCase();
@@ -1277,6 +1302,34 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
     if (docProto.readyState === undefined) {
         defineGetter(docProto, 'readyState', function () {
             return 'complete';
+        });
+    }
+
+    if (docProto.activeElement === undefined) {
+        defineGetter(docProto, 'activeElement', function () {
+            return this.body || this.documentElement || null;
+        });
+    }
+    if (docProto.defaultView === undefined) {
+        defineGetter(docProto, 'defaultView', function () {
+            return (typeof window !== 'undefined' && window !== null) ? window : null;
+        });
+    }
+    if (docProto.forms === undefined) {
+        defineGetter(docProto, 'forms', function () {
+            return this.getElementsByTagName('form');
+        });
+        defineGetter(docProto, 'images', function () {
+            return this.getElementsByTagName('img');
+        });
+        defineGetter(docProto, 'links', function () {
+            return this.getElementsByTagName('a');
+        });
+        defineGetter(docProto, 'scripts', function () {
+            return this.getElementsByTagName('script');
+        });
+        defineGetter(docProto, 'embeds', function () {
+            return this.getElementsByTagName('embed');
         });
     }
 
