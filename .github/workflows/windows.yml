@@ -9,6 +9,9 @@ on:
 jobs:
   mingw64:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -39,3 +42,10 @@ jobs:
             whatever-win64.zip
             whatever-win64-setup.exe
           if-no-files-found: error
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: |
+            whatever-win64.zip
+            whatever-win64-setup.exe
