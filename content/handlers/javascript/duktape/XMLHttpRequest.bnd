@@ -485,7 +485,7 @@ static void xhr_dispatch(xhr_state_t *st, const char *kind)
 	}
 	duk_pop_2(ctx);
 }
-%};
+%}
 
 init XMLHttpRequest()
 %{
