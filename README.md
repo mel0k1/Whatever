@@ -37,12 +37,19 @@ Works:
 - Engine: dynamic JavaScript with XMLHttpRequest, fetch() and
   Promise, DOM selectors (querySelector, closest, matches), style
   and dataset APIs, DOMParser with true XML support, btoa/atob, a
-  real getComputedStyle computed by the CSS engine, live page
-  reflow after DOM changes, localStorage and sessionStorage,
-  history, window geometry (innerWidth/innerHeight, scroll
-  offsets), getBoundingClientRect and popular ES2015 builtin
-  methods (Object.assign, Array.from/find/flat, String
-  startsWith/padStart, Number.isInteger and more).
+  real getComputedStyle computed by the CSS engine including the
+  box model (border/padding/margin widths), live page reflow after
+  DOM changes, localStorage and sessionStorage, history, window
+  scrolling (scrollTo, scrollBy, scrollIntoView), window geometry
+  (innerWidth/innerHeight, scroll offsets), element geometry
+  (offsetWidth, clientWidth, offsetLeft, offsetParent),
+  getBoundingClientRect, elementFromPoint, NodeList iteration
+  (forEach and for..of), CSS.escape, queueMicrotask, TextEncoder,
+  TextDecoder, URLSearchParams, matchMedia evaluation
+  (width/height, orientation, aspect-ratio, resolution) and
+  popular ES2015 builtin methods (Object.assign,
+  Array.from/find/flat, String startsWith/padStart,
+  Number.isInteger and more).
 - Windows cross-build in CI: a flat zip and an NSIS installer.
 - GTK3 Linux build in CI.
 
@@ -137,12 +144,20 @@ BeOS/Haiku, framebuffer, Qt и RISC OS.
 - Движок: динамический JavaScript с XMLHttpRequest, fetch()
   и Promise, DOM-селекторы (querySelector, closest, matches),
   API стилей и dataset, DOMParser с настоящей поддержкой XML,
-  btoa/atob, настоящий getComputedStyle на движке CSS,
+  btoa/atob, настоящий getComputedStyle на движке CSS
+  с боксовой моделью (ширины border/padding/margin),
   перерисовка страницы после DOM-изменений, localStorage
-  и sessionStorage, history, геометрия окна (innerWidth/
-  innerHeight, прокрутка), getBoundingClientRect и популярные
-  встроенные методы ES2015 (Object.assign, Array.from/find/flat,
-  String startsWith/padStart, Number.isInteger и другие).
+  и sessionStorage, history, прокрутка окна (scrollTo,
+  scrollBy, scrollIntoView), геометрия окна (innerWidth/
+  innerHeight, прокрутка), геометрия элементов
+  (offsetWidth, clientWidth, offsetLeft, offsetParent),
+  getBoundingClientRect, elementFromPoint, итерация NodeList
+  (forEach и for..of), CSS.escape, queueMicrotask, TextEncoder,
+  TextDecoder, URLSearchParams, вычисление matchMedia
+  (ширина/высота, ориентация, aspect-ratio, resolution)
+  и популярные встроенные методы ES2015
+  (Object.assign, Array.from/find/flat, String startsWith/padStart,
+  Number.isInteger и другие).
 - Windows-сборка в CI: плоский zip и NSIS-установщик.
 - Linux GTK3-сборка в CI.
 
