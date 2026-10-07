@@ -458,8 +458,18 @@ html_create_html_data(html_content *c, const http_parameter *params)
 	dom_hubbub_error error;
 	dom_exception err;
 	void *old_node_data;
-	const char *prefer_color_mode = (nsoption_bool(prefer_dark_mode)) ?
+	const char *env_theme;
+	const char *prefer_color_mode;
+
+	prefer_color_mode = (nsoption_bool(prefer_dark_mode)) ?
 			"dark" : "light";
+	env_theme = getenv("WHATEVER_THEME");
+	if (env_theme != NULL && strcmp(env_theme, "dark") == 0) {
+		prefer_color_mode = "dark";
+	} else if (env_theme != NULL &&
+		   strcmp(env_theme, "light") == 0) {
+		prefer_color_mode = "light";
+	}
 
 	c->parser = NULL;
 	c->parse_completed = false;
