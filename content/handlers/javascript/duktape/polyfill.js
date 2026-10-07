@@ -1637,7 +1637,11 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
                         return false;
                     }
                     if (name === 'prefers-color-scheme') {
-                        return val === 'light';
+                        var theme = typeof __nsTheme === 'function' ? String(__nsTheme()) : 'light';
+                        if (val === '') {
+                            return true;
+                        }
+                        return val === theme;
                     }
                     if (name === 'prefers-reduced-motion' || name === 'prefers-reduced-transparency') {
                         return val === 'no-preference';
@@ -2142,21 +2146,71 @@ DOMSettableTokenList.prototype.toString = DOMTokenList.prototype.toString;
         }
         if (typeof window.getSelection !== 'function') {
             window.getSelection = function () {
+                var st = typeof __nsSelState === 'function' ? __nsSelState() : null;
+                var active = st !== null && st !== undefined && st.active === true;
                 return {
-                    rangeCount: 0,
-                    isCollapsed: true,
+                    rangeCount: active ? 1 : 0,
+                    isCollapsed: !active,
+                    type: active ? 'Range' : 'None',
+                    anchorNode: null,
+                    anchorOffset: 0,
+                    focusNode: null,
+                    focusOffset: 0,
+                    toString: function () {
+                        return active ? String(st.text || '') : '';
+                    },
                     getRangeAt: function () {
-                        throw new Error('no ranges');
+                        if (!active) {
+                            throw new Error('IndexSizeError');
+                        }
+                        return {
+                            collapsed: false,
+                            startContainer: null,
+                            endContainer: null,
+                            startOffset: 0,
+                            endOffset: 0,
+                            toString: function () {
+                                return String(st.text || '');
+                            }
+                        };
                     },
                     addRange: function () {
                     },
                     removeAllRanges: function () {
+                        if (typeof __nsSelClear === 'function') {
+                            __nsSelClear();
+                        }
                     },
-                    toString: function () {
-                        return '';
+                    selectAllChildren: function () {
+                        if (typeof __nsSelAll === 'function') {
+                            __nsSelAll();
+                        }
+                    },
+                    collapse: function () {
+                        if (typeof __nsSelSet === 'function') {
+                            __nsSelSet(0, 0);
+                        }
+                    },
+                    setPosition: function () {
+                        if (typeof __nsSelSet === 'function') {
+                            __nsSelSet(0, 0);
+                        }
+                    },
+                    collapseToStart: function () {
+                        if (typeof __nsSelSet === 'function') {
+                            __nsSelSet(0, 0);
+                        }
+                    },
+                    collapseToEnd: function () {
+                        if (typeof __nsSelSet === 'function') {
+                            __nsSelSet(0, 0);
+                        }
                     }
                 };
             };
+        }
+        if (typeof document.getSelection !== 'function') {
+            document.getSelection = window.getSelection;
         }
         if (typeof window.history === 'undefined' || window.history === null) {
             var histState = null;
