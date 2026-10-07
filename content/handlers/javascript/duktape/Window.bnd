@@ -27,6 +27,9 @@ class Window {
 #include "netsurf/inttypes.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include "netsurf/mouse.h"
+#include "desktop/selection.h"
 #include "css/select.h"
 #include "css/utils.h"
 #include "desktop/browser_private.h"
@@ -873,6 +876,81 @@ static duk_ret_t dukky_ns_element_from_point(duk_context *ctx)
 	return 1;
 }
 
+static bool dukky_window_env_theme_dark(void)
+{
+	const char *env = getenv("WHATEVER_THEME");
+	bool dark = nsoption_bool(prefer_dark_mode);
+	if (env != NULL && strcmp(env, "dark") == 0) {
+		dark = true;
+	} else if (env != NULL && strcmp(env, "light") == 0) {
+		dark = false;
+	}
+	return dark;
+}
+
+static duk_ret_t dukky_ns_theme(duk_context *ctx)
+{
+	duk_push_string(ctx, dukky_window_env_theme_dark() ? "dark" : "light");
+	return 1;
+}
+
+static duk_ret_t dukky_ns_sel_state(duk_context *ctx)
+{
+	window_private_t *priv = dukky_window_priv(ctx);
+	char *text;
+	bool active;
+	if (priv == NULL || priv->htmlc == NULL ||
+	    priv->htmlc->sel == NULL) {
+		return 0;
+	}
+	active = selection_active(priv->htmlc->sel);
+	duk_push_object(ctx);
+	duk_push_boolean(ctx, active);
+	duk_put_prop_string(ctx, -2, "active");
+	text = active ? selection_get_copy(priv->htmlc->sel) : NULL;
+	duk_push_string(ctx, text != NULL ? text : "");
+	if (text != NULL) {
+		free(text);
+	}
+	duk_put_prop_string(ctx, -2, "text");
+	return 1;
+}
+
+static duk_ret_t dukky_ns_sel_clear(duk_context *ctx)
+{
+	window_private_t *priv = dukky_window_priv(ctx);
+	if (priv == NULL || priv->htmlc == NULL ||
+	    priv->htmlc->sel == NULL) {
+		return 0;
+	}
+	(void)selection_clear(priv->htmlc->sel, true);
+	return 0;
+}
+
+static duk_ret_t dukky_ns_sel_all(duk_context *ctx)
+{
+	window_private_t *priv = dukky_window_priv(ctx);
+	if (priv == NULL || priv->htmlc == NULL ||
+	    priv->htmlc->sel == NULL) {
+		return 0;
+	}
+	selection_select_all(priv->htmlc->sel);
+	return 0;
+}
+
+static duk_ret_t dukky_ns_sel_set(duk_context *ctx)
+{
+	window_private_t *priv = dukky_window_priv(ctx);
+	if (priv == NULL || priv->htmlc == NULL ||
+	    priv->htmlc->sel == NULL) {
+		return 0;
+	}
+	selection_set_position(priv->htmlc->sel,
+			(unsigned)duk_to_uint32(ctx, 0),
+			(unsigned)duk_to_uint32(ctx, 1));
+	return 0;
+}
+
 void dukky_window_register_api(duk_context *ctx)
 {
 	duk_push_c_function(ctx, dukky_ns_metrics, 0);
@@ -889,6 +967,16 @@ void dukky_window_register_api(duk_context *ctx)
 	duk_put_global_string(ctx, "__nsScrollTo");
 	duk_push_c_function(ctx, dukky_ns_element_from_point, 2);
 	duk_put_global_string(ctx, "__nsElementFromPoint");
+	duk_push_c_function(ctx, dukky_ns_theme, 0);
+	duk_put_global_string(ctx, "__nsTheme");
+	duk_push_c_function(ctx, dukky_ns_sel_state, 0);
+	duk_put_global_string(ctx, "__nsSelState");
+	duk_push_c_function(ctx, dukky_ns_sel_clear, 0);
+	duk_put_global_string(ctx, "__nsSelClear");
+	duk_push_c_function(ctx, dukky_ns_sel_all, 0);
+	duk_put_global_string(ctx, "__nsSelAll");
+	duk_push_c_function(ctx, dukky_ns_sel_set, 2);
+	duk_put_global_string(ctx, "__nsSelSet");
 }
 
 %};
@@ -1763,6 +1851,54 @@ method Window::getComputedStyle()
 	if (prev != rootres && rootres != NULL) {
 		css_select_results_destroy(rootres);
 	}
+	return 1;
+%}
+
+method Window::open()
+%{
+	const char *ourl = NULL;
+	const char *otarget = NULL;
+	const char *target;
+	struct nsurl *joined = NULL;
+	struct nsurl *referrer;
+	struct browser_window *target_bw;
+	nserror err;
+	duk_idx_t argc = duk_get_top(ctx);
+
+	if (argc > 0 && duk_is_string(ctx, 0)) {
+		ourl = duk_get_string(ctx, 0);
+	}
+	if (ourl == NULL || ourl[0] == '\0') {
+		ourl = "about:blank";
+	}
+	if (argc > 1 && duk_is_string(ctx, 1)) {
+		otarget = duk_get_string(ctx, 1);
+	}
+	if (otarget == NULL || otarget[0] == '\0') {
+		target = "_self";
+	} else {
+		target = otarget;
+	}
+	referrer = browser_window_access_url(priv->win);
+	err = nsurl_join(priv->htmlc->base_url, ourl, &joined);
+	if (err != NSERROR_OK) {
+		duk_push_null(ctx);
+		return 1;
+	}
+	if (strcmp(target, "_self") == 0) {
+		(void)browser_window_navigate(priv->win, joined, referrer,
+				BW_NAVIGATE_HISTORY, NULL, NULL, NULL);
+	} else {
+		target_bw = browser_window_find_target(priv->win, target,
+				BROWSER_MOUSE_CLICK_1);
+		if (target_bw != NULL) {
+			(void)browser_window_navigate(target_bw, joined,
+					referrer, BW_NAVIGATE_HISTORY,
+					NULL, NULL, NULL);
+		}
+	}
+	nsurl_unref(joined);
+	duk_push_null(ctx);
 	return 1;
 %}
 
