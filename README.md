@@ -46,10 +46,16 @@ Works:
   getBoundingClientRect, elementFromPoint, NodeList iteration
   (forEach and for..of), CSS.escape, queueMicrotask, TextEncoder,
   TextDecoder, URLSearchParams, matchMedia evaluation
-  (width/height, orientation, aspect-ratio, resolution) and
+  (width/height, orientation, aspect-ratio, resolution,
+  prefers-color-scheme driven by WHATEVER_THEME) and
   popular ES2015 builtin methods (Object.assign,
   Array.from/find/flat, String startsWith/padStart,
   Number.isInteger and more).
+- window.open() opens new tabs or windows through the core
+  browser window API, including named targets.
+- window.getSelection() and document.getSelection() expose the
+  live text selection (rangeCount, isCollapsed, toString) and
+  can clear it (removeAllRanges).
 - Windows cross-build in CI: a flat zip and an NSIS installer.
 - GTK3 Linux build in CI.
 
@@ -88,6 +94,9 @@ The GTK3 frontend ships two monochrome stylesheets. Light is the default:
 Dark variant:
 
     WHATEVER_THEME=dark ./nsgtk3
+
+The same variable drives the `prefers-color-scheme` media
+feature for web content.
 
 ## Build
 
@@ -154,10 +163,16 @@ BeOS/Haiku, framebuffer, Qt и RISC OS.
   getBoundingClientRect, elementFromPoint, итерация NodeList
   (forEach и for..of), CSS.escape, queueMicrotask, TextEncoder,
   TextDecoder, URLSearchParams, вычисление matchMedia
-  (ширина/высота, ориентация, aspect-ratio, resolution)
+  (ширина/высота, ориентация, aspect-ratio, resolution,
+  prefers-color-scheme из WHATEVER_THEME)
   и популярные встроенные методы ES2015
   (Object.assign, Array.from/find/flat, String startsWith/padStart,
   Number.isInteger и другие).
+- window.open() открывает новые вкладки и окна через ядро
+  браузера, включая именованные target.
+- window.getSelection() и document.getSelection() отдают живое
+  выделение текста (rangeCount, isCollapsed, toString) с
+  поддержкой removeAllRanges.
 - Windows-сборка в CI: плоский zip и NSIS-установщик.
 - Linux GTK3-сборка в CI.
 
@@ -178,6 +193,9 @@ BeOS/Haiku, framebuffer, Qt и RISC OS.
 По умолчанию светлая ч/б тема. Тёмная:
 
     WHATEVER_THEME=dark ./nsgtk3
+
+Та же переменная задаёт медиа-функцию `prefers-color-scheme`
+для содержимого страниц.
 
 ## Сборка
 
